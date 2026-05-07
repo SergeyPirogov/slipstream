@@ -51,6 +51,51 @@ export function findCommonStart(a: Track, b: Track, thresholdM = 500): CommonSta
   };
 }
 
+export type CommonEnd = {
+  distA: number;    // metres from A's file start to the common end point
+  distB: number;    // metres from B's file start to the common end point
+  geoDistM: number;
+  tailA: number;    // metres trimmed from A's tail
+  tailB: number;    // metres trimmed from B's tail
+};
+
+// Scan the last SCAN_M metres of each track to find where it comes closest to the
+// other track's last point. Returns null when the nearest approach exceeds thresholdM.
+export function findCommonEnd(a: Track, b: Track, thresholdM = 500): CommonEnd | null {
+  const SCAN_M = 5000;
+  const endA = a.points[a.points.length - 1];
+  const endB = b.points[b.points.length - 1];
+  const totalA = endA.distFromStart;
+  const totalB = endB.distFromStart;
+
+  let bestBDist = Infinity, bestBDistFromStart = totalB;
+  for (let i = b.points.length - 1; i >= 0; i--) {
+    const p = b.points[i];
+    if (totalB - p.distFromStart > SCAN_M) break;
+    const d = haversineM(endA.lat, endA.lon, p.lat, p.lon);
+    if (d < bestBDist) { bestBDist = d; bestBDistFromStart = p.distFromStart; }
+  }
+
+  let bestADist = Infinity, bestADistFromStart = totalA;
+  for (let i = a.points.length - 1; i >= 0; i--) {
+    const p = a.points[i];
+    if (totalA - p.distFromStart > SCAN_M) break;
+    const d = haversineM(endB.lat, endB.lon, p.lat, p.lon);
+    if (d < bestADist) { bestADist = d; bestADistFromStart = p.distFromStart; }
+  }
+
+  const geoDistM = Math.min(bestADist, bestBDist);
+  if (geoDistM > thresholdM) return null;
+
+  return {
+    distA: bestADistFromStart,
+    distB: bestBDistFromStart,
+    geoDistM,
+    tailA: totalA - bestADistFromStart,
+    tailB: totalB - bestBDistFromStart,
+  };
+}
+
 function binarySearch(values: number[], target: number): number {
   let lo = 0;
   let hi = values.length - 1;

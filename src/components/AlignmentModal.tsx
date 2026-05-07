@@ -1,7 +1,11 @@
 import { useRef } from "react";
 import { useStore } from "../store";
 import { OffsetControl } from "./OffsetControl";
-import { startOffsetSec, findCommonStart } from "../gpx/align";
+import { startOffsetSec, findCommonStart, findCommonEnd } from "../gpx/align";
+
+function fmtDist(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
+}
 
 function fmtGap(sec: number): string {
   const abs = Math.abs(sec);
@@ -37,6 +41,7 @@ export function AlignmentModal() {
 
   const gap = trackA && trackB ? startOffsetSec(trackA, trackB) : 0;
   const commonStart = trackA && trackB ? findCommonStart(trackA, trackB) : null;
+  const commonEnd = trackA && trackB ? findCommonEnd(trackA, trackB) : null;
 
 
   if (!trackA || !trackB) return null;
@@ -85,7 +90,19 @@ export function AlignmentModal() {
     });
   }
 
-  // 3) Start gap
+  // 3) Common end point
+  if (commonEnd && (commonEnd.tailA > 10 || commonEnd.tailB > 10)) {
+    const parts: string[] = [];
+    if (commonEnd.tailA > 10) parts.push(`A trims ${fmtDist(commonEnd.tailA)} tail`);
+    if (commonEnd.tailB > 10) parts.push(`B trims ${fmtDist(commonEnd.tailB)} tail`);
+    checks.push({
+      ok: true,
+      title: `Common end point found (${Math.round(commonEnd.geoDistM)} m apart)`,
+      detail: parts.join(", "),
+    });
+  }
+
+  // 4) Start gap
   const gapOk = absGap <= 2;
   const gapMatchesOffset = Math.abs(absGap - Math.abs(offsetSec)) <= 2;
   checks.push({
@@ -102,7 +119,7 @@ export function AlignmentModal() {
   });
 
   const allGood = checks.every((c) => c.ok);
-  if (!allGood || commonStart) needsAttentionRef.current = true;
+  if (!allGood || commonStart || commonEnd) needsAttentionRef.current = true;
 
   // Don't show if checks were never triggered for this pair.
   if (!needsAttentionRef.current) return null;
@@ -116,7 +133,7 @@ export function AlignmentModal() {
         <div className="alignment-modal-header">
           <h2>Align tracks</h2>
           <div className="sub">
-            The two files don't line up on a shared clock. Adjust time alignment before we start comparing — you can refine it later in the sidebar.
+            Review the checks below and fix any issues before comparing. Use the TZ dropdowns to correct head-unit clock offsets, then trim both tracks to the shared segment.
           </div>
           <ul className="alignment-checklist">
             {checks.map((c, i) => (
@@ -131,13 +148,6 @@ export function AlignmentModal() {
           </ul>
         </div>
         <OffsetControl onContinue={confirmAlignment} />
-        {offsetSec === 0 && (
-          <div className="alignment-modal-actions">
-            <button className="primary" onClick={confirmAlignment}>
-              Continue
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

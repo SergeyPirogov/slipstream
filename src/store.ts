@@ -3,9 +3,10 @@ import type { Track } from "./gpx/analyze";
 import { analyze } from "./gpx/analyze";
 import type { ParsedGpx } from "./gpx/parse";
 import type { SyncMode } from "./gpx/align";
-import { maxValueForMode, startOffsetSec, findCommonStart } from "./gpx/align";
+import { maxValueForMode, startOffsetSec, findCommonStart, findCommonEnd } from "./gpx/align";
 
 export type Slot = "A" | "B";
+
 
 type RawEntry = { parsed: ParsedGpx; filename: string };
 
@@ -149,27 +150,39 @@ export const useStore = create<State>((set, get) => ({
     set((s) => {
       if (!s.trackA || !s.trackB || !s.rawA || !s.rawB) return s;
       const cs = findCommonStart(s.trackA, s.trackB);
-      if (!cs) return s;
+      const ce = findCommonEnd(s.trackA, s.trackB);
+      if (!cs && !ce) return s;
 
       const trimTrack = (
         raw: { parsed: ParsedGpx; filename: string },
         track: Track,
-        distM: number,
+        startDistM: number,
+        endDistM: number,
       ) => {
-        if (distM < 10) return { raw, track }; // nothing meaningful to trim
-        // Find the index of the first point at or past distM
-        const keepIdx = track.points.findIndex((p) => p.distFromStart >= distM);
-        if (keepIdx <= 0) return { raw, track };
-        const kept = raw.parsed.points.slice(keepIdx);
-        if (kept.length < 2) return { raw, track };
-        const trimmedParsed = { ...raw.parsed, points: kept };
+        // Find first point at or past startDistM, last point at or before endDistM
+        let points = raw.parsed.points;
+        if (startDistM > 10) {
+          const idx = track.points.findIndex((p) => p.distFromStart >= startDistM);
+          if (idx > 0) points = points.slice(idx);
+        }
+        if (endDistM < track.points[track.points.length - 1].distFromStart - 10) {
+          const idx = track.points.findIndex((p) => p.distFromStart > endDistM);
+          if (idx > 0) points = points.slice(0, idx);
+        }
+        if (points.length < 2) return { raw, track };
+        const trimmedParsed = { ...raw.parsed, points };
         const rebuilt = analyze(trimmedParsed, raw.filename, track.tzOffsetHours);
         if (track.rider) rebuilt.rider = track.rider;
         return { raw: { parsed: trimmedParsed, filename: raw.filename }, track: rebuilt };
       };
 
-      const resA = trimTrack(s.rawA, s.trackA, cs.distA);
-      const resB = trimTrack(s.rawB, s.trackB, cs.distB);
+      const startA = cs?.distA ?? 0;
+      const startB = cs?.distB ?? 0;
+      const endA = ce?.distA ?? s.trackA.totals.distanceM;
+      const endB = ce?.distB ?? s.trackB.totals.distanceM;
+
+      const resA = trimTrack(s.rawA, s.trackA, startA, endA);
+      const resB = trimTrack(s.rawB, s.trackB, startB, endB);
 
       return {
         ...s,

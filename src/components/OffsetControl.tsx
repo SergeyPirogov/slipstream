@@ -1,6 +1,6 @@
 import { useStore } from "../store";
 import { RiderNameEditor } from "./RiderNameEditor";
-import { findCommonStart } from "../gpx/align";
+import { findCommonStart, findCommonEnd } from "../gpx/align";
 
 function fmtSigned(sec: number): string {
   if (sec === 0) return "0s";
@@ -68,6 +68,7 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
   const realGap = Math.round((startB.getTime() - startA.getTime()) / 1000);
 
   const commonStart = findCommonStart(trackA, trackB);
+  const commonEnd = findCommonEnd(trackA, trackB);
 
   const absGap = Math.abs(realGap);
   const hoursGuess = Math.round(realGap / 3600);
@@ -124,15 +125,32 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
           <div style={{ marginTop: 4, color: "var(--fg-dim)", fontSize: 11 }}>
             {Math.round(commonStart.geoDistM)} m apart · gap: {fmtSigned(realGap)} · offset: <span style={{ color: "var(--fg)" }}>{fmtSigned(offsetSec)}</span>
           </div>
-          {(commonStart.distA > 10 || commonStart.distB > 10) && (
+          {commonEnd && (commonEnd.tailA > 10 || commonEnd.tailB > 10) && (
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "3px 10px", alignItems: "baseline", marginTop: 8, fontSize: 12, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+              <div style={{ fontSize: 11, color: "var(--fg-dim)", textTransform: "uppercase", letterSpacing: "0.06em", gridColumn: "1 / -1", marginBottom: 2 }}>Common end point</div>
+              {commonEnd.tailA > 10 && (
+                <>
+                  <span style={{ color: "var(--a)", fontWeight: 600 }}>A</span>
+                  <span style={{ color: "var(--fg-dim)" }}>trims {fmtDist(commonEnd.tailA)} tail</span>
+                </>
+              )}
+              {commonEnd.tailB > 10 && (
+                <>
+                  <span style={{ color: "var(--b)", fontWeight: 600 }}>B</span>
+                  <span style={{ color: "var(--fg-dim)" }}>trims {fmtDist(commonEnd.tailB)} tail</span>
+                </>
+              )}
+            </div>
+          )}
+          {(commonStart.distA > 10 || commonStart.distB > 10 || (commonEnd && (commonEnd.tailA > 10 || commonEnd.tailB > 10))) && (
             <button
               className="trim-head-btn"
               style={{ marginTop: 8 }}
               disabled={tzNotFixed}
               onClick={() => { trimToCommonStart(); onContinue?.(); }}
-              title={tzNotFixed ? "Fix the timezone mismatch first" : "Trim each track to its common starting point so both begin at the same location"}
+              title={tzNotFixed ? "Fix the timezone mismatch first" : "Trim each track to its common start and end points"}
             >
-              Trim to common start{onContinue ? " & continue" : ""}
+              Trim to common segment{onContinue ? " & continue" : ""}
             </button>
           )}
         </>
