@@ -30,7 +30,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>GPX Analyzer</h1>
+        <h1>Slipstream</h1>
         <a
           className="patreon-btn"
           href="https://patreon.com/automation_remarks"
