@@ -124,6 +124,8 @@ export function MapFlyover() {
   const mapRef = useRef<L.Map | null>(null);
   const lineARef = useRef<L.Polyline | null>(null);
   const lineBRef = useRef<L.Polyline | null>(null);
+  const segARef = useRef<L.Polyline | null>(null);
+  const segBRef = useRef<L.Polyline | null>(null);
   const markerARef = useRef<L.Marker | null>(null);
   const markerBRef = useRef<L.Marker | null>(null);
   const labelARef = useRef<HTMLDivElement | null>(null);
@@ -141,6 +143,7 @@ export function MapFlyover() {
   const progress = useStore((s) => s.progress);
   const playing = useStore((s) => s.playing);
   const offsetSec = useStore((s) => s.offsetSec);
+  const segmentM = useStore((s) => s.segmentM);
   const maxValue = useMaxValue();
 
   const syncA = useMemo(() => (trackA ? buildSyncArrays(trackA) : null), [trackA]);
@@ -329,6 +332,8 @@ export function MapFlyover() {
       mapRef.current = null;
       lineARef.current = null;
       lineBRef.current = null;
+      segARef.current = null;
+      segBRef.current = null;
       markerARef.current = null;
       markerBRef.current = null;
     };
@@ -402,6 +407,35 @@ export function MapFlyover() {
       map.fitBounds(fg.getBounds(), { padding: [40, 40] });
     }
   }, [trackA, trackB]);
+
+  // Segment highlight overlays.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const draw = (
+      track: typeof trackA,
+      ref: React.MutableRefObject<L.Polyline | null>,
+    ) => {
+      if (segmentM && track) {
+        const pts = track.points
+          .filter((p) => p.distFromStart >= segmentM.start && p.distFromStart <= segmentM.end)
+          .map((p) => [p.lat, p.lon] as [number, number]);
+        if (pts.length > 1) {
+          if (ref.current) {
+            ref.current.setLatLngs(pts);
+          } else {
+            ref.current = L.polyline(pts, { color: "#22c55e", weight: 5, opacity: 0.85 }).addTo(map);
+          }
+          return;
+        }
+      }
+      if (ref.current) { ref.current.remove(); ref.current = null; }
+    };
+
+    draw(trackA, segARef);
+    draw(trackB, segBRef);
+  }, [segmentM, trackA, trackB]);
 
   // Animate markers + follow camera on playback.
   useEffect(() => {

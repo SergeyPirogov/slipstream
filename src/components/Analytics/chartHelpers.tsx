@@ -19,18 +19,21 @@ export function buildSeriesByDistance(
   trackB: Track | null,
   pick: (idx: number, track: Track) => number | undefined,
   sampleCount = 600,
+  segmentM?: { start: number; end: number } | null,
 ): Row[] {
   if (!trackA || !trackB) return [];
-  const maxKm =
-    Math.max(trackA.totals.distanceM, trackB.totals.distanceM) / 1000;
-  const step = maxKm / sampleCount;
+  const fullMaxM = Math.max(trackA.totals.distanceM, trackB.totals.distanceM);
+  const startM = segmentM ? segmentM.start : 0;
+  const endM = segmentM ? Math.min(segmentM.end, fullMaxM) : fullMaxM;
+  const rangeM = endM - startM;
+  if (rangeM <= 0) return [];
+  const step = rangeM / sampleCount;
   const rows: Row[] = [];
-  // Pre-build distance arrays for binary search.
   const aDists = trackA.points.map((p) => p.distFromStart);
   const bDists = trackB.points.map((p) => p.distFromStart);
   for (let i = 0; i <= sampleCount; i++) {
-    const km = i * step;
-    const m = km * 1000;
+    const m = startM + i * step;
+    const km = m / 1000;
     const aIdx = bsearch(aDists, m);
     const bIdx = bsearch(bDists, m);
     const a = m <= trackA.totals.distanceM ? pick(aIdx, trackA) : undefined;
@@ -58,6 +61,7 @@ export function TwoSeriesLineChart({
   riderA,
   riderB,
   yDomain,
+  segmentM,
 }: {
   data: Row[];
   cursorKm?: number;
@@ -66,6 +70,7 @@ export function TwoSeriesLineChart({
   riderA: string;
   riderB: string;
   yDomain?: [number | "auto", number | "auto"];
+  segmentM?: { start: number; end: number } | null;
 }) {
   return (
     <ResponsiveContainer width="100%" height={160}>
@@ -78,7 +83,7 @@ export function TwoSeriesLineChart({
           tickFormatter={(v) => `${Math.round(v)}`}
           label={{ value: "km", position: "insideBottomRight", offset: -2, fill: "#8e94a0", fontSize: 10 }}
           type="number"
-          domain={["dataMin", "dataMax"]}
+          domain={segmentM ? [segmentM.start / 1000, segmentM.end / 1000] : ["dataMin", "dataMax"]}
         />
         <YAxis
           stroke="#8e94a0"

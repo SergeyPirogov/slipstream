@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useStore, useMaxValue } from "../store";
+import { useStore, useMaxValue, useSegmentBounds } from "../store";
 import { buildSyncArrays, positionAtValue, queryValues } from "../gpx/align";
 
 const SPEED_PRESETS = [1, 5, 10, 50, 100, 250, 500];
@@ -29,6 +29,7 @@ export function PlaybackControls() {
   const setProgress = useStore((s) => s.setProgress);
   const setPlaying = useStore((s) => s.setPlaying);
   const maxValue = useMaxValue();
+  const segBounds = useSegmentBounds();
 
   const progressRef = useRef(progress);
   useEffect(() => {
@@ -44,14 +45,15 @@ export function PlaybackControls() {
         ? maxValue
         : maxValue /
           ((Math.min(trackA.totals.avgSpeedKmh, trackB.totals.avgSpeedKmh) || 20) * (1000 / 3600));
+    const ceiling = segBounds ? segBounds.endFrac : 1;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
       const dp = (dt * speed) / Math.max(1, refSeconds);
-      const next = Math.min(1, progressRef.current + dp);
+      const next = Math.min(ceiling, progressRef.current + dp);
       progressRef.current = next;
       setProgress(next);
-      if (next < 1) raf = requestAnimationFrame(tick);
+      if (next < ceiling) raf = requestAnimationFrame(tick);
       else setPlaying(false);
     };
     raf = requestAnimationFrame(tick);
@@ -120,7 +122,7 @@ export function PlaybackControls() {
       <button className={`primary ${playing ? "is-pause" : "is-play"}`} disabled={disabled} onClick={togglePlay}>
         {playing ? "⏸ Pause" : "▶ Play"}
       </button>
-      <button disabled={disabled} onClick={() => setProgress(0)}>↺ Reset</button>
+      <button disabled={disabled} onClick={() => setProgress(segBounds ? segBounds.startFrac : 0)}>↺ Reset</button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>Speed</span>
@@ -135,8 +137,8 @@ export function PlaybackControls() {
         <input
           className="scrub"
           type="range"
-          min={0}
-          max={1000}
+          min={segBounds ? Math.round(segBounds.startFrac * 1000) : 0}
+          max={segBounds ? Math.round(segBounds.endFrac * 1000) : 1000}
           value={Math.round(progress * 1000)}
           disabled={disabled}
           onChange={(e) => {

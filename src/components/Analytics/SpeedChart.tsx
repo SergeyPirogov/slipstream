@@ -7,11 +7,12 @@ export function SpeedChart() {
   const trackB = useStore((s) => s.trackB);
   const syncMode = useStore((s) => s.syncMode);
   const progress = useStore((s) => s.progress);
+  const segmentM = useStore((s) => s.segmentM);
   const maxValue = useMaxValue();
 
   const data = useMemo(
-    () => buildSeriesByDistance(trackA, trackB, (i, t) => t.points[i].speedKmh),
-    [trackA, trackB],
+    () => buildSeriesByDistance(trackA, trackB, (i, t) => t.points[i].speedKmh, 600, segmentM),
+    [trackA, trackB, segmentM],
   );
 
   if (!trackA || !trackB) return null;
@@ -37,6 +38,7 @@ export function SpeedChart() {
         yUnit="km/h"
         riderA={trackA.rider}
         riderB={trackB.rider}
+        segmentM={segmentM}
       />
     </div>
   );

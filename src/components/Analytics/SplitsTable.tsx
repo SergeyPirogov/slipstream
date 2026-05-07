@@ -28,23 +28,29 @@ export function SplitsTable() {
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
   const offsetSec = useStore((s) => s.offsetSec);
+  const segmentM = useStore((s) => s.segmentM);
   if (!trackA || !trackB) return null;
 
-  // Every 10 km, then a final partial split at the end of the shorter ride.
-  const limitKm =
-    Math.min(trackA.totals.distanceM, trackB.totals.distanceM) / 1000;
+  const segStartKm = segmentM ? segmentM.start / 1000 : 0;
+  const segEndKm = segmentM
+    ? segmentM.end / 1000
+    : Math.min(trackA.totals.distanceM, trackB.totals.distanceM) / 1000;
+  const limitKm = segEndKm;
+  const splitKm = segmentM ? Math.max(1, Math.round((segEndKm - segStartKm) / 5)) : 10;
+
   const boundaries: number[] = [];
-  for (let k = 10; k <= Math.floor(limitKm); k += 10) boundaries.push(k);
-  const lastFull = boundaries.length > 0 ? boundaries[boundaries.length - 1] : 0;
-  // Add a final partial split if there's more than 100 m of ride past the last 10 km mark.
+  for (let k = segStartKm + splitKm; k <= Math.floor(limitKm * 10) / 10; k += splitKm) {
+    boundaries.push(Math.round(k * 10) / 10);
+  }
+  const lastFull = boundaries.length > 0 ? boundaries[boundaries.length - 1] : segStartKm;
   if (limitKm - lastFull > 0.1) boundaries.push(limitKm);
 
   const rows = boundaries.map((km, i) => {
-    const prevKm = i === 0 ? 0 : boundaries[i - 1];
+    const prevKm = i === 0 ? segStartKm : boundaries[i - 1];
     const aEndElapsed = elapsedAtKm(trackA, km) ?? 0;
     const bEndElapsed = elapsedAtKm(trackB, km) ?? 0;
-    const aPrevElapsed = prevKm === 0 ? 0 : elapsedAtKm(trackA, prevKm) ?? 0;
-    const bPrevElapsed = prevKm === 0 ? 0 : elapsedAtKm(trackB, prevKm) ?? 0;
+    const aPrevElapsed = elapsedAtKm(trackA, prevKm) ?? 0;
+    const bPrevElapsed = elapsedAtKm(trackB, prevKm) ?? 0;
     const aDurReal = aEndElapsed - aPrevElapsed;
     const bDurReal = bEndElapsed - bPrevElapsed;
     const segKm = km - prevKm;
@@ -74,7 +80,7 @@ export function SplitsTable() {
 
   return (
     <div className="panel">
-      <h3>10 km splits</h3>
+      <h3>{segmentM ? `${splitKm} km splits · segment` : "10 km splits"}</h3>
       <table className="splits-table">
         <thead>
           <tr>

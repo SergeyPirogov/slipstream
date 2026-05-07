@@ -23,6 +23,7 @@ type State = {
   offsetSec: number;
   offsetTouched: boolean;
   alignmentConfirmed: boolean;
+  segmentM: { start: number; end: number } | null;
 
   loadTrack: (slot: Slot, parsed: ParsedGpx, filename: string) => void;
   clearTrack: (slot: Slot) => void;
@@ -39,6 +40,8 @@ type State = {
   trimHeadStart: () => void;
   trimToCommonStart: () => void;
   confirmAlignment: () => void;
+  setSegmentM: (start: number, end: number) => void;
+  clearSegmentM: () => void;
 };
 
 function maybeAutofillOffset(
@@ -62,6 +65,7 @@ export const useStore = create<State>((set, get) => ({
   offsetSec: 0,
   offsetTouched: false,
   alignmentConfirmed: false,
+  segmentM: null,
 
   loadTrack: (slot, parsed, filename) => {
     set((s) => {
@@ -193,10 +197,29 @@ export const useStore = create<State>((set, get) => ({
     }),
 
   confirmAlignment: () => set({ alignmentConfirmed: true }),
+  setSegmentM: (start, end) => set({ segmentM: { start, end }, progress: 0, playing: false }),
+  clearSegmentM: () => set({ segmentM: null, progress: 0, playing: false }),
 }));
 
 export function useMaxValue(): number {
   const { trackA, trackB, syncMode, offsetSec } = useStore();
   if (!trackA || !trackB) return 1;
   return maxValueForMode(trackA, trackB, syncMode, offsetSec);
+}
+
+// When a distance segment is active, returns [startFraction, endFraction] of maxValue.
+// PlaybackControls uses this to clamp the scrubber range.
+export function useSegmentBounds(): { startFrac: number; endFrac: number } | null {
+  const segmentM = useStore((s) => s.segmentM);
+  const trackA = useStore((s) => s.trackA);
+  const trackB = useStore((s) => s.trackB);
+  const syncMode = useStore((s) => s.syncMode);
+  const offsetSec = useStore((s) => s.offsetSec);
+  if (!segmentM || !trackA || !trackB || syncMode !== "distance") return null;
+  const maxVal = maxValueForMode(trackA, trackB, syncMode, offsetSec);
+  if (maxVal <= 0) return null;
+  return {
+    startFrac: segmentM.start / maxVal,
+    endFrac: segmentM.end / maxVal,
+  };
 }
