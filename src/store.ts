@@ -55,7 +55,7 @@ export const useStore = create<State>((set, get) => ({
   rawB: null,
   syncMode: "time",
   playing: false,
-  speed: 50,
+  speed: 10,
   progress: 0,
   offsetSec: 0,
   offsetTouched: false,

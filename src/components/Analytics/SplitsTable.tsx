@@ -90,7 +90,7 @@ export function SplitsTable() {
               <td>{Number.isInteger(r.km) ? r.km.toFixed(0) : r.km.toFixed(1)}</td>
               <td>{fmtDur(r.aDur)}<br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.aSpd.toFixed(1)} km/h</span></td>
               <td>{fmtDur(r.bDur)}<br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.bSpd.toFixed(1)} km/h</span></td>
-              <td className={r.delta > 0 ? "delta-neg" : r.delta < 0 ? "delta-pos" : ""}>
+              <td className={r.delta > 0 ? "delta-pos" : r.delta < 0 ? "delta-neg" : ""}>
                 {r.delta === 0 ? "—" : `${r.delta > 0 ? "+" : "−"}${fmtDur(Math.abs(r.delta))}`}
               </td>
             </tr>

@@ -105,7 +105,7 @@ export function LiveStatsPanel() {
 
   return (
     <div className="panel">
-      <h3>Live</h3>
+      <h3><span className="rec-dot" aria-hidden="true" />Live</h3>
       <div className="summary-grid">
         {card("a", posA, trackA)}
         {card("b", posB, trackB)}
@@ -113,7 +113,7 @@ export function LiveStatsPanel() {
       <div className="live-delta">
         <div>
           <span className="k">Δ distance</span>
-          <span className={`v ${distDelta > 0 ? "delta-neg" : distDelta < 0 ? "delta-pos" : ""}`}>
+          <span className={`v ${distDelta > 0 ? "delta-pos" : distDelta < 0 ? "delta-neg" : ""}`}>
             {distDelta === 0
               ? "—"
               : `${distDelta > 0 ? "+" : "−"}${(Math.abs(distDelta) / 1000).toFixed(2)} km`}
@@ -121,15 +121,26 @@ export function LiveStatsPanel() {
         </div>
         <div>
           <span className="k">Δ time</span>
-          <span className={`v ${timeDeltaZero ? "" : timeDelta > 0 ? "delta-neg" : "delta-pos"}`}>
+          <span className={`v ${timeDeltaZero ? "" : timeDelta > 0 ? "delta-pos" : "delta-neg"}`}>
             {timeDeltaZero
               ? "0s"
               : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`}
           </span>
         </div>
       </div>
-      <div style={{ fontSize: 11, color: "var(--fg-dim)", marginTop: 6 }}>
-        + means {trackA.rider} is ahead.
+      <div
+        className="live-ahead"
+        style={{
+          color: timeDeltaZero
+            ? "var(--fg-dim)"
+            : timeDelta > 0
+              ? "var(--a)"
+              : "var(--b)",
+        }}
+      >
+        {timeDeltaZero
+          ? "Even"
+          : `${timeDelta > 0 ? trackA.rider : trackB.rider} is ahead`}
       </div>
     </div>
   );

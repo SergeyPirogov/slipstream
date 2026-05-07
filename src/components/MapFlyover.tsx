@@ -55,12 +55,16 @@ function positionGapOverlay(
   pxA: { x: number; y: number },
   pxB: { x: number; y: number },
   text: string,
+  tint: "pos" | "neg" | "neutral" = "neutral",
 ) {
   if (!el) return;
   const cx = (pxA.x + pxB.x) / 2;
-  const cy = pxA.y; // align with rider A's row
+  // Sit above whichever rider is higher on screen (smaller y), clear of the tether labels.
+  const cy = Math.min(pxA.y, pxB.y) - 46;
   el.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
   el.style.display = "";
+  el.classList.remove("gap-pos", "gap-neg", "gap-neutral");
+  el.classList.add(`gap-${tint}`);
   setTextIfChanged(el.querySelector(".gap-overlay-text"), text);
 }
 
@@ -129,6 +133,7 @@ export function MapFlyover() {
   const leaderBRef = useRef<SVGLineElement | null>(null);
   const gapOverlayRef = useRef<HTMLDivElement | null>(null);
   const gapLabelTextRef = useRef<string>("");
+  const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
 
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
@@ -149,11 +154,44 @@ export function MapFlyover() {
       zoom: 10,
       zoomControl: true,
       preferCanvas: true,
+      scrollWheelZoom: true,
+      wheelPxPerZoomLevel: 100,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      doubleClickZoom: true,
+      worldCopyJump: true,
+      inertia: true,
+      inertiaDeceleration: 2500,
     });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 19,
     }).addTo(map);
+
+    // Custom control: fit the map bounds to both route lines.
+    const FitControl = L.Control.extend({
+      onAdd() {
+        const a = L.DomUtil.create("a", "leaflet-bar leaflet-control fit-control") as HTMLAnchorElement;
+        a.href = "#";
+        a.title = "Fit routes";
+        a.setAttribute("role", "button");
+        a.setAttribute("aria-label", "Fit routes");
+        a.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`;
+        L.DomEvent.on(a, "click", (ev: Event) => {
+          ev.preventDefault();
+          const group: L.Layer[] = [];
+          if (lineARef.current) group.push(lineARef.current);
+          if (lineBRef.current) group.push(lineBRef.current);
+          if (group.length > 0) {
+            const fg = L.featureGroup(group);
+            map.fitBounds(fg.getBounds(), { padding: [40, 40] });
+          }
+        });
+        L.DomEvent.disableClickPropagation(a);
+        return a;
+      },
+    });
+    new FitControl({ position: "topright" }).addTo(map);
 
     mapRef.current = map;
 
@@ -286,10 +324,8 @@ export function MapFlyover() {
     positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA.rider, statsA, dxA, dyA);
     positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB.rider, statsB, dxB, dyB);
 
-    // Gap line + label between the two riders.
+    // Gap between the two riders (meters along route).
     const gapMeters = Math.abs(posA.distFromStart - posB.distFromStart);
-    const MIN_GAP_M = 40; // below this, drop the line (noise) but keep an "even" label
-    const showLine = gapMeters > MIN_GAP_M;
 
     // Ghost-race Δ time at the common distance (shared clock).
     const refDist = Math.max(
@@ -305,18 +341,16 @@ export function MapFlyover() {
     const dPosB = positionAtValue(trackB, syncB.distance, refDist);
     const timeDelta = dPosB.elapsedSec + offsetSec - dPosA.elapsedSec;
 
-    let label: string;
-    if (showLine) {
-      const distKm = gapMeters / 1000;
-      const distLabel = distKm >= 1 ? `${distKm.toFixed(2)} km` : `${Math.round(gapMeters)} m`;
-      const timeLabel = Math.abs(timeDelta) < 0.5 ? "" : ` · ${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
-      label = distLabel + timeLabel;
-    } else {
-      label = "even · 0s";
-    }
+    // Distance: always use km with 2 decimals (matches Live panel).
+    const distKm = gapMeters / 1000;
+    const distLabel = `${distKm.toFixed(2)} km`;
+    const timePart = Math.abs(timeDelta) < 0.5 ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
+    const label = `${distLabel} · ${timePart}`;
 
-    positionGapOverlay(gapOverlayRef.current, pxA, pxB, label);
+    const tint: "pos" | "neg" | "neutral" = Math.abs(timeDelta) < 0.5 ? "neutral" : timeDelta > 0 ? "pos" : "neg";
+    positionGapOverlay(gapOverlayRef.current, pxA, pxB, label, tint);
     gapLabelTextRef.current = label;
+    gapTintRef.current = tint;
 
     if (playing) {
       const midLat = (posA.lat + posB.lat) / 2;
@@ -341,7 +375,7 @@ export function MapFlyover() {
       const absDx = Math.abs(TETHER_DX_A);
       positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA?.rider ?? "", null, -absDx, TETHER_DY);
       positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB?.rider ?? "", null, absDx, TETHER_DY);
-      positionGapOverlay(gapOverlayRef.current, pxA, pxB, gapLabelTextRef.current);
+      positionGapOverlay(gapOverlayRef.current, pxA, pxB, gapLabelTextRef.current, gapTintRef.current);
     };
     map.on("move zoom", handler);
     return () => { map.off("move zoom", handler); };

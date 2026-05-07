@@ -59,7 +59,7 @@ export function OffsetControl() {
   const startB = trackB.points[0].t;
   const realGap = Math.round((startB.getTime() - startA.getTime()) / 1000);
 
-  const disabled = syncMode !== "time";
+  const disabled = false;
 
   const tzRow = (slot: "A" | "B", track: NonNullable<typeof trackA>) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
@@ -107,7 +107,7 @@ export function OffsetControl() {
 
       <div style={{ fontSize: 12, color: "var(--fg-dim)", marginBottom: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-          Playback offset {disabled && <span style={{ textTransform: "none", letterSpacing: 0 }}>(only in Real-time mode)</span>}
+          Playback offset
         </div>
         <div>Adjusted A start: {startA.toISOString().replace("T", " ").replace(".000Z", " UTC")}</div>
         <div>Adjusted B start: {startB.toISOString().replace("T", " ").replace(".000Z", " UTC")}</div>
@@ -145,11 +145,13 @@ export function OffsetControl() {
         <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>sec</span>
       </div>
 
-      <div className="offset-action-row">
-        <button disabled={disabled} onClick={autoDetectOffset} title="Use the wall-clock gap between adjusted GPX start times">
-          Use real gap
-        </button>
-      </div>
+      {Math.abs(realGap) > 2 && (
+        <div className="offset-action-row">
+          <button disabled={disabled} onClick={autoDetectOffset} title="Use the wall-clock gap between adjusted GPX start times">
+            Use real gap
+          </button>
+        </div>
+      )}
 
       {offsetSec !== 0 && (
         <div className="trim-head-row">
