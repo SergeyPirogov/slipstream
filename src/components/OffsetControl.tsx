@@ -57,9 +57,9 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
   const trackB = useStore((s) => s.trackB);
   const offsetSec = useStore((s) => s.offsetSec);
   const setOffsetSec = useStore((s) => s.setOffsetSec);
-  const autoDetectOffset = useStore((s) => s.autoDetectOffset);
   const setTzOffsetHours = useStore((s) => s.setTzOffsetHours);
   const trimHeadStart = useStore((s) => s.trimHeadStart);
+  const trimToCommonStart = useStore((s) => s.trimToCommonStart);
 
   if (!trackA || !trackB) return null;
 
@@ -69,7 +69,9 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
 
   const commonStart = findCommonStart(trackA, trackB);
 
-  const disabled = false;
+  const absGap = Math.abs(realGap);
+  const hoursGuess = Math.round(realGap / 3600);
+  const tzNotFixed = absGap >= 1800 && Math.abs(hoursGuess * 3600 - realGap) < 600;
 
   const tzRow = (slot: "A" | "B", track: NonNullable<typeof trackA>) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
@@ -122,6 +124,17 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
           <div style={{ marginTop: 4, color: "var(--fg-dim)", fontSize: 11 }}>
             {Math.round(commonStart.geoDistM)} m apart · gap: {fmtSigned(realGap)} · offset: <span style={{ color: "var(--fg)" }}>{fmtSigned(offsetSec)}</span>
           </div>
+          {(commonStart.distA > 10 || commonStart.distB > 10) && (
+            <button
+              className="trim-head-btn"
+              style={{ marginTop: 8 }}
+              disabled={tzNotFixed}
+              onClick={() => { trimToCommonStart(); onContinue?.(); }}
+              title={tzNotFixed ? "Fix the timezone mismatch first" : "Trim each track to its common starting point so both begin at the same location"}
+            >
+              Trim to common start{onContinue ? " & continue" : ""}
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -153,50 +166,55 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
 
       {startInfoSection}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <input
-          type="range"
-          min={-7200}
-          max={7200}
-          step={1}
-          value={offsetSec}
-          disabled={disabled}
-          onChange={(e) => setOffsetSec(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
-        <input
-          type="number"
-          value={offsetSec}
-          step={1}
-          disabled={disabled}
-          onChange={(e) => setOffsetSec(Number(e.target.value))}
-          style={{
-            width: 90,
-            background: "var(--bg-elev-2)",
-            color: "var(--fg)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            padding: "4px 6px",
-            fontSize: 12,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        />
-        <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>sec</span>
-      </div>
-
-      {offsetSec !== 0 && (
-        <div className="trim-head-row">
-          <button
-            onClick={() => { trimHeadStart(); onContinue?.(); }}
-            className="trim-head-btn"
-            title={`Drop the first ${Math.abs(offsetSec)}s from ${offsetSec > 0 ? "rider A" : "rider B"} so both tracks start at the same moment. Offset resets to 0.`}
-          >
-            Apply offset ({Math.abs(offsetSec)}s) to {offsetSec > 0 ? "rider A" : "rider B"}{onContinue ? " & continue" : ""}
-          </button>
-          <div className="trim-head-hint">
-            Removes the first {Math.abs(offsetSec)}s of {offsetSec > 0 ? "rider A's" : "rider B's"} data so both tracks effectively begin together. Permanent until you re-load the file.
+      {!onContinue && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="range"
+              min={-7200}
+              max={7200}
+              step={1}
+              value={offsetSec}
+              disabled={false}
+              onChange={(e) => setOffsetSec(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <input
+              type="number"
+              value={offsetSec}
+              step={1}
+              disabled={false}
+              onChange={(e) => setOffsetSec(Number(e.target.value))}
+              style={{
+                width: 90,
+                background: "var(--bg-elev-2)",
+                color: "var(--fg)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "4px 6px",
+                fontSize: 12,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            />
+            <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>sec</span>
           </div>
-        </div>
+
+          {offsetSec !== 0 && (
+            <div className="trim-head-row">
+              <button
+                onClick={() => trimHeadStart()}
+                className="trim-head-btn"
+                disabled={tzNotFixed}
+                title={tzNotFixed ? "Fix the timezone mismatch first" : `Drop the first ${Math.abs(offsetSec)}s from ${offsetSec > 0 ? "rider A" : "rider B"} so both tracks start at the same moment. Offset resets to 0.`}
+              >
+                Apply offset ({Math.abs(offsetSec)}s) to {offsetSec > 0 ? "rider A" : "rider B"}
+              </button>
+              <div className="trim-head-hint">
+                Removes the first {Math.abs(offsetSec)}s of {offsetSec > 0 ? "rider A's" : "rider B's"} data so both tracks effectively begin together. Permanent until you re-load the file.
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

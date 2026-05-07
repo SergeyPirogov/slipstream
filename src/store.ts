@@ -3,7 +3,7 @@ import type { Track } from "./gpx/analyze";
 import { analyze } from "./gpx/analyze";
 import type { ParsedGpx } from "./gpx/parse";
 import type { SyncMode } from "./gpx/align";
-import { maxValueForMode, startOffsetSec } from "./gpx/align";
+import { maxValueForMode, startOffsetSec, findCommonStart } from "./gpx/align";
 
 export type Slot = "A" | "B";
 
@@ -36,6 +36,7 @@ type State = {
   resetOffset: () => void;
   autoDetectOffset: () => void;
   trimHeadStart: () => void;
+  trimToCommonStart: () => void;
   confirmAlignment: () => void;
 };
 
@@ -142,6 +143,40 @@ export const useStore = create<State>((set, get) => ({
         : { ...s, trackB: rebuilt, rawB: { parsed: trimmedParsed, filename: raw.filename } };
 
       return { ...base, offsetSec: 0, offsetTouched: true, progress: 0, playing: false };
+    }),
+
+  trimToCommonStart: () =>
+    set((s) => {
+      if (!s.trackA || !s.trackB || !s.rawA || !s.rawB) return s;
+      const cs = findCommonStart(s.trackA, s.trackB);
+      if (!cs) return s;
+
+      const trimTrack = (
+        raw: { parsed: ParsedGpx; filename: string },
+        track: Track,
+        distM: number,
+      ) => {
+        if (distM < 10) return { raw, track }; // nothing meaningful to trim
+        // Find the index of the first point at or past distM
+        const keepIdx = track.points.findIndex((p) => p.distFromStart >= distM);
+        if (keepIdx <= 0) return { raw, track };
+        const kept = raw.parsed.points.slice(keepIdx);
+        if (kept.length < 2) return { raw, track };
+        const trimmedParsed = { ...raw.parsed, points: kept };
+        const rebuilt = analyze(trimmedParsed, raw.filename, track.tzOffsetHours);
+        if (track.rider) rebuilt.rider = track.rider;
+        return { raw: { parsed: trimmedParsed, filename: raw.filename }, track: rebuilt };
+      };
+
+      const resA = trimTrack(s.rawA, s.trackA, cs.distA);
+      const resB = trimTrack(s.rawB, s.trackB, cs.distB);
+
+      return {
+        ...s,
+        trackA: resA.track, rawA: resA.raw,
+        trackB: resB.track, rawB: resB.raw,
+        offsetSec: 0, offsetTouched: true, progress: 0, playing: false,
+      };
     }),
 
   confirmAlignment: () => set({ alignmentConfirmed: true }),

@@ -395,6 +395,10 @@ html, body, #root {
   background: rgba(245, 158, 11, 0.08);
   border-left: 2px solid #f59e0b;
 }
+.alignment-checklist li.note {
+  border-left: 2px solid var(--border);
+}
+.alignment-checklist li.note .title { color: var(--fg); font-weight: 400; }
 .alignment-checklist .mark {
   font-weight: 700;
   font-size: 13px;
@@ -507,9 +511,9 @@ html, body, #root {
 }
 .trim-head-btn {
   width: 100%;
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.07);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
   padding: 9px 12px;
   border-radius: 6px;
   cursor: pointer;
@@ -519,8 +523,8 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
 }
 .trim-head-btn:hover:not(:disabled) {
-  background: rgba(34, 197, 94, 0.25);
-  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.45);
 }
 .trim-head-btn:disabled {
   opacity: 0.45;

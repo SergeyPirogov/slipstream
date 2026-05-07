@@ -13,7 +13,7 @@ function fmtGap(sec: number): string {
   return `${s}s`;
 }
 
-type Check = { ok: boolean; title: string; detail?: string };
+type Check = { ok: boolean; note?: boolean; title: string; detail?: string };
 
 export function AlignmentModal() {
   const trackA = useStore((s) => s.trackA);
@@ -87,16 +87,18 @@ export function AlignmentModal() {
 
   // 3) Start gap
   const gapOk = absGap <= 2;
+  const gapMatchesOffset = Math.abs(absGap - Math.abs(offsetSec)) <= 2;
   checks.push({
-    ok: gapOk,
+    ok: true,
+    note: !gapOk,
     title: gapOk
       ? "Start times line up"
-      : `Start-time gap: ${fmtGap(gap)}${offsetSec !== 0 ? ` (playback offset set: ${fmtGap(offsetSec)})` : ""}`,
+      : `Note: start-time gap ${fmtGap(gap)}${gapMatchesOffset && offsetSec !== 0 ? " — covered by offset" : ""}`,
     detail: gapOk
       ? undefined
       : nearWholeHour
         ? "Fix the TZ first — the gap should then collapse to seconds."
-        : "Click \"Trim head start\" below to cut the earlier rider's lead-in so both tracks begin together.",
+        : undefined,
   });
 
   const allGood = checks.every((c) => c.ok);
@@ -118,8 +120,8 @@ export function AlignmentModal() {
           </div>
           <ul className="alignment-checklist">
             {checks.map((c, i) => (
-              <li key={i} className={c.ok ? "ok" : "warn"}>
-                <span className="mark">{c.ok ? "✓" : "!"}</span>
+              <li key={i} className={c.note ? "note" : c.ok ? "ok" : "warn"}>
+                <span className="mark">{c.note ? "·" : c.ok ? "✓" : "!"}</span>
                 <div>
                   <div className="title">{c.title}</div>
                   {c.detail && <div className="detail">{c.detail}</div>}
