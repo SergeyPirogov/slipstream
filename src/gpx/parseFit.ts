@@ -52,12 +52,34 @@ export async function parseFitFile(file: File): Promise<ParsedGpx> {
     throw new Error("FIT file has fewer than 2 GPS-tagged records");
   }
 
-  const sport = data?.activity?.sessions?.[0]?.sport ?? data?.sessions?.[0]?.sport;
+  const session = data?.activity?.sessions?.[0] ?? data?.sessions?.[0];
+  const sport = session?.sport;
+  const subSport = session?.sub_sport && session.sub_sport !== "generic" ? session.sub_sport : undefined;
+  const elapsedSec = typeof session?.total_elapsed_time === "number" ? session.total_elapsed_time : undefined;
   const name = file.name.replace(/\.fit$/i, "");
+
+  const deviceInfos: any[] = data?.device_infos ?? data?.activity?.device_infos ?? [];
+  const primaryDevice = deviceInfos.find((d: any) => d.device_index === "creator" || d.device_index === 0) ?? deviceInfos[0];
+  let device: string | undefined;
+  if (primaryDevice) {
+    const parts = [primaryDevice.manufacturer, primaryDevice.product_name].filter(Boolean);
+    if (parts.length > 0) device = parts.join(" ");
+  }
+  // Fall back to file_ids product name (e.g. "Sauce for Strava™")
+  if (!device) {
+    const fileId = data?.file_ids?.[0];
+    if (fileId?.product_name) device = fileId.product_name;
+  }
+
+  const athleteName: string | undefined = data?.user_profile?.friendly_name || undefined;
 
   return {
     name,
     type: sport,
+    subSport,
+    device,
+    athleteName,
+    elapsedSec,
     points,
   };
 }

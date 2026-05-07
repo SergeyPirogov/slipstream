@@ -77,6 +77,7 @@ export const useStore = create<State>()(persist((set, get) => ({
   alignmentConfirmed: false,
 
   loadTrack: (slot, parsed, filename) => {
+    localStorage.removeItem("slipstream-state");
     set((s) => {
       const track = analyze(parsed, filename, 0);
       const next: State = slot === "A"

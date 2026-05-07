@@ -147,11 +147,6 @@ export function AlignmentModal() {
           >
             Continue
           </button>
-          {!allGood && (
-            <button onClick={confirmAlignment} title="Skip alignment and continue anyway">
-              Skip
-            </button>
-          )}
         </div>
       </div>
     </div>

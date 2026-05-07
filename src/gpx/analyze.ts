@@ -38,12 +38,16 @@ export type Totals = {
   avgPower?: number;
   maxPower?: number;
   normalizedPower?: number;
+  avgTemp?: number;
 };
 
 export type Track = {
   name: string;
   rider: string;
   description?: string;
+  device?: string;
+  subSport?: string;
+  elapsedSec?: number;
   points: TrackPoint[];
   totals: Totals;
   climbs: Climb[];
@@ -268,6 +272,7 @@ export function analyze(parsed: ParsedGpx, filename: string, tzOffsetHours = 0):
 
   let hrSum = 0, hrN = 0, cadSum = 0, cadN = 0, maxSpeed = 0;
   let pwrSum = 0, pwrN = 0, pwrMax = 0;
+  let tempSum = 0, tempN = 0;
   const pwrSeries: number[] = [];
   for (const p of points) {
     if (p.hr !== undefined && p.hr > 0) { hrSum += p.hr; hrN++; }
@@ -278,6 +283,7 @@ export function analyze(parsed: ParsedGpx, filename: string, tzOffsetHours = 0):
       if (p.power > pwrMax) pwrMax = p.power;
       pwrSeries.push(p.power);
     }
+    if (p.atemp !== undefined) { tempSum += p.atemp; tempN++; }
   }
 
   let normalizedPower: number | undefined;
@@ -302,6 +308,7 @@ export function analyze(parsed: ParsedGpx, filename: string, tzOffsetHours = 0):
     avgPower: pwrN > 0 ? pwrSum / pwrN : undefined,
     maxPower: pwrN > 0 ? pwrMax : undefined,
     normalizedPower,
+    avgTemp: tempN > 0 ? tempSum / tempN : undefined,
   };
 
   const climbs = detectClimbs(points, dists, grades);
@@ -309,8 +316,11 @@ export function analyze(parsed: ParsedGpx, filename: string, tzOffsetHours = 0):
 
   return {
     name: parsed.name,
-    rider: riderFromFilename(filename),
+    rider: parsed.athleteName ?? riderFromFilename(filename),
     description: parsed.description,
+    device: parsed.device,
+    subSport: parsed.subSport,
+    elapsedSec: parsed.elapsedSec,
     points,
     totals,
     climbs,

@@ -840,7 +840,8 @@ html, body, #root {
 }
 .summary-card.a { border-left-color: var(--a); }
 .summary-card.b { border-left-color: var(--b); }
-.summary-card .rider { font-size: 11px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.summary-card .rider { font-size: 11px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.virtual-badge { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 3px; background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed44; text-transform: uppercase; }
 .summary-card .rows { display: grid; grid-template-columns: auto auto; gap: 3px 10px; font-size: 12px; }
 .summary-card .rows .k { color: var(--fg-dim); }
 .summary-card .rows .v { text-align: right; font-variant-numeric: tabular-nums; }

@@ -15,57 +15,73 @@ export function SummaryCards() {
   const trackB = useStore((s) => s.trackB);
   if (!trackA || !trackB) return null;
 
-  const card = (slot: "a" | "b", track: NonNullable<typeof trackA>) => (
-    <div className={`summary-card ${slot}`}>
-      <div className="rider">
-        <RiderNameEditor slot={slot === "a" ? "A" : "B"} />
+  const card = (slot: "a" | "b", track: NonNullable<typeof trackA>) => {
+    const elapsedDiffSec = track.elapsedSec !== undefined
+      ? track.elapsedSec - track.totals.durationSec
+      : 0;
+    const showElapsed = track.elapsedSec !== undefined && elapsedDiffSec > 60;
+
+    return (
+      <div className={`summary-card ${slot}`}>
+        <div className="rider">
+          <RiderNameEditor slot={slot === "a" ? "A" : "B"} />
+          {track.subSport === "virtual_activity" && (
+            <span className="virtual-badge">Virtual</span>
+          )}
+        </div>
+        <div className="rows">
+          <div className="k">Distance</div>
+          <div className="v">{(track.totals.distanceM / 1000).toFixed(2)} km</div>
+          <div className="k">Moving time</div>
+          <div className="v">{formatDuration(track.totals.durationSec)}</div>
+          {showElapsed && (
+            <>
+              <div className="k">Elapsed time</div>
+              <div className="v">{formatDuration(track.elapsedSec!)}</div>
+            </>
+          )}
+          <div className="k">Avg speed</div>
+          <div className="v">{track.totals.avgSpeedKmh.toFixed(1)} km/h</div>
+          <div className="k">Max speed</div>
+          <div className="v">{track.totals.maxSpeedKmh.toFixed(1)} km/h</div>
+          <div className="k">Ascent</div>
+          <div className="v">{Math.round(track.totals.ascentM)} m</div>
+          {track.totals.avgHr !== undefined && (
+            <>
+              <div className="k">Avg HR</div>
+              <div className="v">{Math.round(track.totals.avgHr)} bpm</div>
+            </>
+          )}
+          {track.totals.avgCad !== undefined && (
+            <>
+              <div className="k">Avg cadence</div>
+              <div className="v">{Math.round(track.totals.avgCad)} rpm</div>
+            </>
+          )}
+          {track.totals.avgPower !== undefined && (
+            <>
+              <div className="k">Avg power</div>
+              <div className="v">{Math.round(track.totals.avgPower)} W</div>
+            </>
+          )}
+          {track.totals.normalizedPower !== undefined && (
+            <>
+              <div className="k">NP</div>
+              <div className="v">{Math.round(track.totals.normalizedPower)} W</div>
+            </>
+          )}
+          {track.totals.maxPower !== undefined && (
+            <>
+              <div className="k">Max power</div>
+              <div className="v">{Math.round(track.totals.maxPower)} W</div>
+            </>
+          )}
+          <div className="k">Climbs ≥500m</div>
+          <div className="v">{track.climbs.length}</div>
+        </div>
       </div>
-      <div className="rows">
-        <div className="k">Distance</div>
-        <div className="v">{(track.totals.distanceM / 1000).toFixed(2)} km</div>
-        <div className="k">Moving time</div>
-        <div className="v">{formatDuration(track.totals.durationSec)}</div>
-        <div className="k">Avg speed</div>
-        <div className="v">{track.totals.avgSpeedKmh.toFixed(1)} km/h</div>
-        <div className="k">Max speed</div>
-        <div className="v">{track.totals.maxSpeedKmh.toFixed(1)} km/h</div>
-        <div className="k">Ascent</div>
-        <div className="v">{Math.round(track.totals.ascentM)} m</div>
-        {track.totals.avgHr !== undefined && (
-          <>
-            <div className="k">Avg HR</div>
-            <div className="v">{Math.round(track.totals.avgHr)} bpm</div>
-          </>
-        )}
-        {track.totals.avgCad !== undefined && (
-          <>
-            <div className="k">Avg cadence</div>
-            <div className="v">{Math.round(track.totals.avgCad)} rpm</div>
-          </>
-        )}
-        {track.totals.avgPower !== undefined && (
-          <>
-            <div className="k">Avg power</div>
-            <div className="v">{Math.round(track.totals.avgPower)} W</div>
-          </>
-        )}
-        {track.totals.normalizedPower !== undefined && (
-          <>
-            <div className="k">NP</div>
-            <div className="v">{Math.round(track.totals.normalizedPower)} W</div>
-          </>
-        )}
-        {track.totals.maxPower !== undefined && (
-          <>
-            <div className="k">Max power</div>
-            <div className="v">{Math.round(track.totals.maxPower)} W</div>
-          </>
-        )}
-        <div className="k">Climbs ≥500m</div>
-        <div className="v">{track.climbs.length}</div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="panel">

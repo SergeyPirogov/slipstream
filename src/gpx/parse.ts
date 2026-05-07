@@ -15,6 +15,10 @@ export type ParsedGpx = {
   name: string;
   description?: string;
   type?: string;
+  subSport?: string;
+  device?: string;
+  athleteName?: string;
+  elapsedSec?: number;
   points: RawPoint[];
 };
 
