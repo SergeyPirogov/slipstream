@@ -100,6 +100,7 @@ export function Map3D() {
   const gapLabelTextRef = useRef<string>("");
   const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
   const prevPosARef = useRef<{ lat: number; lon: number } | null>(null);
+  const lastCameraUpdateRef = useRef<number>(0);
   const fittedRef = useRef(false);
   const styleLoadedRef = useRef(false);
 
@@ -250,13 +251,16 @@ export function Map3D() {
     prevPosARef.current = { lat: posA.lat, lon: posA.lon };
 
     if (playing) {
-      map.easeTo({
-        center: [(posA.lon + posB.lon) / 2, (posA.lat + posB.lat) / 2],
-        bearing,
-        pitch: 60,
-        duration: 300,
-        easing: (t) => t,
-      });
+      const now = performance.now();
+      // Throttle camera to ~4 fps to avoid queuing easeTo calls every frame.
+      if (now - lastCameraUpdateRef.current > 250) {
+        lastCameraUpdateRef.current = now;
+        map.jumpTo({
+          center: [(posA.lon + posB.lon) / 2, (posA.lat + posB.lat) / 2],
+          bearing,
+          pitch: 60,
+        });
+      }
     }
   }, [progress, syncMode, maxValue, trackA, trackB, syncA, syncB, playing, offsetSec]);
 
