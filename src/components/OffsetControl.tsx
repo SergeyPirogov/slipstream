@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useStore } from "../store";
 import { RiderNameEditor } from "./RiderNameEditor";
 
@@ -47,15 +46,11 @@ TZ_OPTIONS.sort((a, b) => a.value - b.value);
 export function OffsetControl() {
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
-  const syncMode = useStore((s) => s.syncMode);
   const offsetSec = useStore((s) => s.offsetSec);
   const setOffsetSec = useStore((s) => s.setOffsetSec);
   const autoDetectOffset = useStore((s) => s.autoDetectOffset);
   const setTzOffsetHours = useStore((s) => s.setTzOffsetHours);
   const trimHeadStart = useStore((s) => s.trimHeadStart);
-  const trimHeadStartByDistance = useStore((s) => s.trimHeadStartByDistance);
-  const [trimDistA, setTrimDistA] = useState(0);
-  const [trimDistB, setTrimDistB] = useState(0);
 
   if (!trackA || !trackB) return null;
 
@@ -77,7 +72,7 @@ export function OffsetControl() {
           background: slot === "A" ? "var(--a)" : "var(--b)",
         }}
       />
-      <span style={{ color: "var(--fg)", minWidth: 90, maxWidth: 160 }}>
+      <span style={{ color: "var(--fg)", minWidth: 120, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         <RiderNameEditor slot={slot} />
       </span>
       <select
@@ -172,43 +167,6 @@ export function OffsetControl() {
         </div>
       )}
 
-      {syncMode === "distance" && (
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 4 }}>
-          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-dim)", marginBottom: 8 }}>
-            Trim head start by distance
-          </div>
-          {(["A", "B"] as const).map((slot) => {
-            const trimDist = slot === "A" ? trimDistA : trimDistB;
-            const setTrimDist = slot === "A" ? setTrimDistA : setTrimDistB;
-            const track = slot === "A" ? trackA : trackB;
-            const maxDist = Math.round(track.totals.distanceM);
-            return (
-              <div key={slot} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span className="dot" style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: slot === "A" ? "var(--a)" : "var(--b)", flexShrink: 0 }} />
-                <input
-                  type="number"
-                  min={0}
-                  max={maxDist}
-                  step={10}
-                  value={trimDist}
-                  onChange={(e) => setTrimDist(Math.max(0, Number(e.target.value)))}
-                  style={{ width: 80, background: "var(--bg-elev-2)", color: "var(--fg)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
-                />
-                <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>m</span>
-                <button
-                  className="trim-head-btn"
-                  disabled={trimDist <= 0}
-                  onClick={() => { trimHeadStartByDistance(slot, trimDist); setTrimDist(0); }}
-                  title={`Remove first ${trimDist}m from rider ${slot}`}
-                >
-                  Trim
-                </button>
-              </div>
-            );
-          })}
-          <div className="trim-head-hint">Cut leading meters from a track so both routes start at the same point.</div>
-        </div>
-      )}
     </div>
   );
 }
