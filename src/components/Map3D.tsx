@@ -161,6 +161,9 @@ export function Map3D() {
 
     mapRef.current = map;
 
+    // Ensure canvas fills the container once layout is settled.
+    requestAnimationFrame(() => map.resize());
+
     return () => {
       map.remove();
       mapRef.current = null;
@@ -170,6 +173,16 @@ export function Map3D() {
       styleLoadedRef.current = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Resize observer — keeps canvas in sync with container size.
+  useEffect(() => {
+    const el = containerRef.current;
+    const map = mapRef.current;
+    if (!el || !map) return;
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   // Render tracks when loaded.
@@ -268,7 +281,7 @@ export function Map3D() {
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
 
       <svg ref={leaderSvgRef} className="tether-svg">
         <line ref={leaderARef} className="tether-leader tether-leader-a" stroke={COLOR_A} />
