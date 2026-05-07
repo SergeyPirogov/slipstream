@@ -148,6 +148,16 @@ export function AlignmentModal() {
           </ul>
         </div>
         <OffsetControl onContinue={confirmAlignment} />
+        {!commonStart && (
+          <div className="alignment-modal-actions">
+            <button
+              onClick={confirmAlignment}
+              style={{ background: "var(--bg-elev-2)", color: "var(--fg-dim)", border: "1px solid var(--border)", borderRadius: 6, padding: "9px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, width: "100%" }}
+            >
+              Compare anyway
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
