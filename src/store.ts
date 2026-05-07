@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import type { Track } from "./gpx/analyze";
 import { analyze } from "./gpx/analyze";
 import type { ParsedGpx } from "./gpx/parse";
@@ -37,7 +36,6 @@ type State = {
   resetOffset: () => void;
   autoDetectOffset: () => void;
   trimHeadStart: () => void;
-  trimHeadStartByDistance: (slot: Slot, meters: number) => void;
   confirmAlignment: () => void;
 };
 
@@ -50,20 +48,7 @@ function maybeAutofillOffset(
   return { offsetSec: s.offsetSec };
 }
 
-// Revive Date objects in ParsedGpx after JSON.parse (dates become strings).
-function reviveParsed(parsed: ParsedGpx): ParsedGpx {
-  return {
-    ...parsed,
-    points: parsed.points.map((p) => ({ ...p, t: new Date(p.t) })),
-  };
-}
-
-function buildTrackFromRaw(raw: RawEntry): Track {
-  const revived = reviveParsed(raw.parsed);
-  return analyze(revived, raw.filename, 0);
-}
-
-export const useStore = create<State>()(persist((set, get) => ({
+export const useStore = create<State>((set, get) => ({
   trackA: null,
   trackB: null,
   rawA: null,
@@ -77,7 +62,6 @@ export const useStore = create<State>()(persist((set, get) => ({
   alignmentConfirmed: false,
 
   loadTrack: (slot, parsed, filename) => {
-    localStorage.removeItem("slipstream-state");
     set((s) => {
       const track = analyze(parsed, filename, 0);
       const next: State = slot === "A"
@@ -111,8 +95,8 @@ export const useStore = create<State>()(persist((set, get) => ({
       // Preserve any custom rider name the user typed.
       if (prev?.rider) rebuilt.rider = prev.rider;
       const next: State = slot === "A"
-        ? { ...s, trackA: rebuilt }
-        : { ...s, trackB: rebuilt };
+        ? { ...s, trackA: rebuilt, offsetTouched: false }
+        : { ...s, trackB: rebuilt, offsetTouched: false };
       return { ...next, ...maybeAutofillOffset(next) };
     });
   },
@@ -160,72 +144,7 @@ export const useStore = create<State>()(persist((set, get) => ({
       return { ...base, offsetSec: 0, offsetTouched: true, progress: 0, playing: false };
     }),
 
-  trimHeadStartByDistance: (slot, meters) =>
-    set((s) => {
-      const raw = slot === "A" ? s.rawA : s.rawB;
-      const prev = slot === "A" ? s.trackA : s.trackB;
-      if (!raw || meters <= 0) return s;
-      const tzHours = prev?.tzOffsetHours ?? 0;
-
-      // Walk cumulative haversine distance until we exceed `meters`, then keep the rest.
-      const pts = raw.parsed.points;
-      let cumDist = 0;
-      let cutIdx = 0;
-      for (let i = 1; i < pts.length; i++) {
-        const prev = pts[i - 1];
-        const curr = pts[i];
-        const dLat = (curr.lat - prev.lat) * Math.PI / 180;
-        const dLon = (curr.lon - prev.lon) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-        cumDist += 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        if (cumDist >= meters) { cutIdx = i; break; }
-      }
-      if (cutIdx === 0) return s;
-
-      const kept = pts.slice(cutIdx);
-      if (kept.length < 2) return s;
-
-      const trimmedParsed = { ...raw.parsed, points: kept };
-      const rebuilt = analyze(trimmedParsed, raw.filename, tzHours);
-      if (prev?.rider) rebuilt.rider = prev.rider;
-
-      return slot === "A"
-        ? { ...s, trackA: rebuilt, rawA: { parsed: trimmedParsed, filename: raw.filename }, progress: 0, playing: false }
-        : { ...s, trackB: rebuilt, rawB: { parsed: trimmedParsed, filename: raw.filename }, progress: 0, playing: false };
-    }),
-
   confirmAlignment: () => set({ alignmentConfirmed: true }),
-}), {
-  name: "slipstream-state",
-  storage: createJSONStorage(() => localStorage),
-  // Only persist the raw source data + user settings. Derived state (trackA/B)
-  // is rebuilt on rehydration via onRehydrateStorage.
-  partialize: (s) => ({
-    rawA: s.rawA,
-    rawB: s.rawB,
-    syncMode: s.syncMode,
-    offsetSec: s.offsetSec,
-    offsetTouched: s.offsetTouched,
-    // alignmentConfirmed is intentionally not persisted — modal always re-runs on load.
-    // Preserve rider names separately so we can re-apply after rebuild.
-    riderNameA: s.trackA?.rider,
-    riderNameB: s.trackB?.rider,
-  }),
-  onRehydrateStorage: () => (state) => {
-    if (!state) return;
-    const { rawA, rawB } = state as State & { riderNameA?: string; riderNameB?: string };
-    const names = state as unknown as { riderNameA?: string; riderNameB?: string };
-    if (rawA) {
-      const track = buildTrackFromRaw(rawA);
-      if (names.riderNameA) track.rider = names.riderNameA;
-      state.trackA = track;
-    }
-    if (rawB) {
-      const track = buildTrackFromRaw(rawB);
-      if (names.riderNameB) track.rider = names.riderNameB;
-      state.trackB = track;
-    }
-  },
 }));
 
 export function useMaxValue(): number {

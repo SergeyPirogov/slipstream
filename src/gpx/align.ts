@@ -1,5 +1,56 @@
 import type { Track, TrackPoint } from "./analyze";
 
+const R = 6371000;
+
+function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const φ1 = toRad(lat1), φ2 = toRad(lat2);
+  const dφ = toRad(lat2 - lat1), dλ = toRad(lon2 - lon1);
+  const x = Math.sin(dφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+export type CommonStart = {
+  distA: number;       // metres from A's file start to the common point
+  distB: number;       // metres from B's file start to the common point
+  geoDistM: number;    // geographic distance between the two common points
+  elapsedA: number;    // elapsed seconds at the common point on A
+  elapsedB: number;    // elapsed seconds at the common point on B
+};
+
+// Scan the first SCAN_M metres of each track to find where it comes closest to the
+// other track's first point. Returns null when the nearest approach exceeds thresholdM.
+export function findCommonStart(a: Track, b: Track, thresholdM = 500): CommonStart | null {
+  const SCAN_M = 5000;
+  const startA = a.points[0];
+  const startB = b.points[0];
+
+  let bestBDist = Infinity, bestBDistFromStart = 0, bestBElapsed = 0;
+  for (const p of b.points) {
+    if (p.distFromStart > SCAN_M) break;
+    const d = haversineM(startA.lat, startA.lon, p.lat, p.lon);
+    if (d < bestBDist) { bestBDist = d; bestBDistFromStart = p.distFromStart; bestBElapsed = p.elapsedSec; }
+  }
+
+  let bestADist = Infinity, bestADistFromStart = 0, bestAElapsed = 0;
+  for (const p of a.points) {
+    if (p.distFromStart > SCAN_M) break;
+    const d = haversineM(startB.lat, startB.lon, p.lat, p.lon);
+    if (d < bestADist) { bestADist = d; bestADistFromStart = p.distFromStart; bestAElapsed = p.elapsedSec; }
+  }
+
+  const geoDistM = Math.min(bestADist, bestBDist);
+  if (geoDistM > thresholdM) return null;
+
+  return {
+    distA: bestADistFromStart,
+    distB: bestBDistFromStart,
+    geoDistM,
+    elapsedA: bestAElapsed,
+    elapsedB: bestBElapsed,
+  };
+}
+
 function binarySearch(values: number[], target: number): number {
   let lo = 0;
   let hi = values.length - 1;
@@ -136,29 +187,22 @@ export function buildSyncArrays(track: Track): { time: number[]; distance: numbe
 // - In distance-sync: both riders are queried at the same cumulative distance (offset ignored).
 // - In time-sync: A queries at global t; B queries at (global t - offsetSec). Values are
 //   clamped into each track's valid range so we never over- or under-shoot.
-// aFinished/bFinished: true when the rider has reached their track end and is "waiting".
 export function queryValues(
   target: number,
   mode: SyncMode,
   aMaxValue: number,
   bMaxValue: number,
   offsetSec: number,
-): { aValue: number; bValue: number; aFinished: boolean; bFinished: boolean } {
+): { aValue: number; bValue: number } {
   if (mode === "distance") {
     return {
       aValue: Math.min(target, aMaxValue),
       bValue: Math.min(target, bMaxValue),
-      aFinished: target > aMaxValue,
-      bFinished: target > bMaxValue,
     };
   }
   // time
-  const aValue = Math.max(0, Math.min(target, aMaxValue));
-  const bValue = Math.max(0, Math.min(target - offsetSec, bMaxValue));
   return {
-    aValue,
-    bValue,
-    aFinished: target > aMaxValue,
-    bFinished: target - offsetSec > bMaxValue,
+    aValue: Math.max(0, Math.min(target, aMaxValue)),
+    bValue: Math.max(0, Math.min(target - offsetSec, bMaxValue)),
   };
 }

@@ -1,5 +1,6 @@
 import { useStore } from "../store";
 import { RiderNameEditor } from "./RiderNameEditor";
+import { findCommonStart } from "../gpx/align";
 
 function fmtSigned(sec: number): string {
   if (sec === 0) return "0s";
@@ -43,7 +44,15 @@ const TZ_OPTIONS: { label: string; value: number }[] = [
 ];
 TZ_OPTIONS.sort((a, b) => a.value - b.value);
 
-export function OffsetControl() {
+function fmtDist(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
+}
+
+function fmtTime(iso: Date): string {
+  return iso.toISOString().replace("T", " ").slice(0, 19) + " UTC";
+}
+
+export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) {
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
   const offsetSec = useStore((s) => s.offsetSec);
@@ -57,6 +66,8 @@ export function OffsetControl() {
   const startA = trackA.points[0].t;
   const startB = trackB.points[0].t;
   const realGap = Math.round((startB.getTime() - startA.getTime()) / 1000);
+
+  const commonStart = findCommonStart(trackA, trackB);
 
   const disabled = false;
 
@@ -72,7 +83,7 @@ export function OffsetControl() {
           background: slot === "A" ? "var(--a)" : "var(--b)",
         }}
       />
-      <span style={{ color: "var(--fg)", minWidth: 120, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span style={{ color: "var(--fg)", minWidth: 90, maxWidth: 160 }}>
         <RiderNameEditor slot={slot} />
       </span>
       <select
@@ -86,6 +97,42 @@ export function OffsetControl() {
       <span style={{ color: "var(--fg-dim)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
         {track.points[0].t.toISOString().replace("T", " ").slice(0, 19)}Z
       </span>
+    </div>
+  );
+
+  const startInfoSection = (
+    <div style={{ fontSize: 12, color: "var(--fg-dim)", marginBottom: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+        Common starting points
+      </div>
+      {commonStart ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "3px 10px", alignItems: "baseline" }}>
+            <span style={{ color: "var(--a)", fontWeight: 600 }}>A</span>
+            <span>
+              {fmtTime(new Date(startA.getTime() + commonStart.elapsedA * 1000))}
+              {commonStart.distA > 10 && <span style={{ color: "var(--fg-dim)" }}> · {fmtDist(commonStart.distA)} from file start</span>}
+            </span>
+            <span style={{ color: "var(--b)", fontWeight: 600 }}>B</span>
+            <span>
+              {fmtTime(new Date(startB.getTime() + commonStart.elapsedB * 1000))}
+              {commonStart.distB > 10 && <span style={{ color: "var(--fg-dim)" }}> · {fmtDist(commonStart.distB)} from file start</span>}
+            </span>
+          </div>
+          <div style={{ marginTop: 4, color: "var(--fg-dim)", fontSize: 11 }}>
+            {Math.round(commonStart.geoDistM)} m apart · gap: {fmtSigned(realGap)} · offset: <span style={{ color: "var(--fg)" }}>{fmtSigned(offsetSec)}</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <div>A start: {fmtTime(startA)}</div>
+          <div>B start: {fmtTime(startB)}</div>
+          <div style={{ marginTop: 4, color: "var(--warn, #f59e0b)", fontSize: 11 }}>
+            No common start found within first 5 km
+          </div>
+          <div style={{ marginTop: 2 }}>Gap: {fmtSigned(realGap)} · offset: <span style={{ color: "var(--fg)" }}>{fmtSigned(offsetSec)}</span></div>
+        </>
+      )}
     </div>
   );
 
@@ -104,14 +151,7 @@ export function OffsetControl() {
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: "var(--fg-dim)", marginBottom: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-          Playback offset
-        </div>
-        <div>Adjusted A start: {startA.toISOString().replace("T", " ").replace(".000Z", " UTC")}</div>
-        <div>Adjusted B start: {startB.toISOString().replace("T", " ").replace(".000Z", " UTC")}</div>
-        <div>Gap: {fmtSigned(realGap)} · current offset: <span style={{ color: "var(--fg)" }}>{fmtSigned(offsetSec)}</span></div>
-      </div>
+      {startInfoSection}
 
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <input
@@ -144,29 +184,20 @@ export function OffsetControl() {
         <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>sec</span>
       </div>
 
-      {Math.abs(realGap) > 2 && (
-        <div className="offset-action-row">
-          <button disabled={disabled} onClick={autoDetectOffset} title="Use the wall-clock gap between adjusted GPX start times">
-            Use real gap
-          </button>
-        </div>
-      )}
-
       {offsetSec !== 0 && (
         <div className="trim-head-row">
           <button
-            onClick={trimHeadStart}
+            onClick={() => { trimHeadStart(); onContinue?.(); }}
             className="trim-head-btn"
             title={`Drop the first ${Math.abs(offsetSec)}s from ${offsetSec > 0 ? "rider A" : "rider B"} so both tracks start at the same moment. Offset resets to 0.`}
           >
-            Trim head start ({Math.abs(offsetSec)}s) from {offsetSec > 0 ? "rider A" : "rider B"}
+            Apply offset ({Math.abs(offsetSec)}s) to {offsetSec > 0 ? "rider A" : "rider B"}{onContinue ? " & continue" : ""}
           </button>
           <div className="trim-head-hint">
             Removes the first {Math.abs(offsetSec)}s of {offsetSec > 0 ? "rider A's" : "rider B's"} data so both tracks effectively begin together. Permanent until you re-load the file.
           </div>
         </div>
       )}
-
     </div>
   );
 }

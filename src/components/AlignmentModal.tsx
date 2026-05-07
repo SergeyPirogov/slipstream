@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useStore } from "../store";
 import { OffsetControl } from "./OffsetControl";
-import { startOffsetSec } from "../gpx/align";
+import { startOffsetSec, findCommonStart } from "../gpx/align";
 
 function fmtGap(sec: number): string {
   const abs = Math.abs(sec);
@@ -21,12 +21,13 @@ export function AlignmentModal() {
   const rawA = useStore((s) => s.rawA);
   const rawB = useStore((s) => s.rawB);
   const offsetSec = useStore((s) => s.offsetSec);
-  const syncMode = useStore((s) => s.syncMode);
   const alignmentConfirmed = useStore((s) => s.alignmentConfirmed);
   const confirmAlignment = useStore((s) => s.confirmAlignment);
-  const setSyncMode = useStore((s) => s.setSyncMode);
 
+  // Track whether this pair of tracks ever needed alignment. Once it did, we stay
+  // visible (even as the user's fixes flip checks to green) until they click Continue.
   const needsAttentionRef = useRef(false);
+  // Key off filenames — stable across trim operations, changes when a new file loads.
   const pairKey = `${rawA?.filename ?? ""}|${rawB?.filename ?? ""}`;
   const lastPairKeyRef = useRef(pairKey);
   if (lastPairKeyRef.current !== pairKey) {
@@ -34,72 +35,78 @@ export function AlignmentModal() {
     lastPairKeyRef.current = pairKey;
   }
 
+  const gap = trackA && trackB ? startOffsetSec(trackA, trackB) : 0;
+  const commonStart = trackA && trackB ? findCommonStart(trackA, trackB) : null;
+
+
   if (!trackA || !trackB) return null;
   if (alignmentConfirmed) return null;
 
-  const gap = startOffsetSec(trackA, trackB);
   const absGap = Math.abs(gap);
 
-  // Tracks from different days — gap > 12 hours. Time sync is meaningless;
-  // distance mode is the right way to compare the same route on different dates.
-  const differentDays = absGap > 12 * 3600;
-
-  const hoursGuess = Math.round(gap / 3600);
-  const nearWholeHour = !differentDays && absGap >= 1800 && Math.abs(hoursGuess * 3600 - gap) < 600;
-
+  // Build checklist items.
   const checks: Check[] = [];
 
-  if (differentDays) {
-    // Show a single informational item — no TZ fix needed, just mode switch.
+  // 1) TZ sanity
+  const hoursGuess = Math.round(gap / 3600);
+  const nearWholeHour = absGap >= 1800 && Math.abs(hoursGuess * 3600 - gap) < 600;
+  const tzShiftMismatch = trackA.tzOffsetHours !== trackB.tzOffsetHours;
+  const anyTzApplied = trackA.tzOffsetHours !== 0 || trackB.tzOffsetHours !== 0;
+  const tzOk = !nearWholeHour;
+
+  let tzTitle: string;
+  let tzDetail: string | undefined;
+  if (nearWholeHour) {
+    tzTitle = `Timezones probably differ by ${Math.abs(hoursGuess)}h — likely a head-unit TZ bug`;
+    tzDetail = `Set one rider's TZ to UTC${hoursGuess >= 0 ? "+" : ""}${hoursGuess} below so both files read as the same wall clock.`;
+  } else if (tzShiftMismatch && anyTzApplied) {
+    tzTitle = `Timezones fixed (A: UTC${trackA.tzOffsetHours >= 0 ? "+" : ""}${trackA.tzOffsetHours}, B: UTC${trackB.tzOffsetHours >= 0 ? "+" : ""}${trackB.tzOffsetHours})`;
+  } else if (anyTzApplied) {
+    tzTitle = "Timezones adjusted";
+  } else {
+    tzTitle = "Timezones look consistent";
+  }
+  checks.push({ ok: tzOk, title: tzTitle, detail: tzDetail });
+
+  // 2) Common starting point
+  if (commonStart) {
+    const parts: string[] = [];
+    if (commonStart.distA > 10) parts.push(`A skips ${fmtGap(commonStart.elapsedA)}`);
+    if (commonStart.distB > 10) parts.push(`B skips ${fmtGap(commonStart.elapsedB)}`);
     checks.push({
-      ok: syncMode === "distance",
-      title: syncMode === "distance"
-        ? "Distance sync active — comparing same route on different dates"
-        : `Tracks are from different dates (gap: ${fmtGap(gap)})`,
-      detail: syncMode === "distance"
-        ? undefined
-        : "These look like the same route ridden on different days. Switch to distance sync to compare them properly.",
+      ok: true,
+      title: `Common starting point found (${Math.round(commonStart.geoDistM)} m apart)`,
+      detail: parts.length > 0 ? parts.join(", ") + " of lead-in" : undefined,
     });
   } else {
-    // TZ sanity check.
-    const tzShiftMismatch = trackA.tzOffsetHours !== trackB.tzOffsetHours;
-    const anyTzApplied = trackA.tzOffsetHours !== 0 || trackB.tzOffsetHours !== 0;
-    const tzOk = !nearWholeHour;
-
-    let tzTitle: string;
-    let tzDetail: string | undefined;
-    if (nearWholeHour) {
-      tzTitle = `Timezones probably differ by ${Math.abs(hoursGuess)}h — likely a head-unit TZ bug`;
-      tzDetail = `Set one rider's TZ to UTC${hoursGuess >= 0 ? "+" : ""}${hoursGuess} below so both files read as the same wall clock.`;
-    } else if (tzShiftMismatch && anyTzApplied) {
-      tzTitle = `Timezones fixed (A: UTC${trackA.tzOffsetHours >= 0 ? "+" : ""}${trackA.tzOffsetHours}, B: UTC${trackB.tzOffsetHours >= 0 ? "+" : ""}${trackB.tzOffsetHours})`;
-    } else if (anyTzApplied) {
-      tzTitle = "Timezones adjusted";
-    } else {
-      tzTitle = "Timezones look consistent";
-    }
-    checks.push({ ok: tzOk, title: tzTitle, detail: tzDetail });
-
-    // Start gap check.
-    const gapOk = absGap <= 2;
     checks.push({
-      ok: gapOk,
-      title: gapOk
-        ? "Start times line up"
-        : `Start-time gap: ${fmtGap(gap)}${offsetSec !== 0 ? ` (playback offset set: ${fmtGap(offsetSec)})` : ""}`,
-      detail: gapOk
-        ? undefined
-        : nearWholeHour
-          ? "Fix the TZ first — the gap should then collapse to seconds."
-          : "Click \"Trim head start\" below to cut the earlier rider's lead-in so both tracks begin together.",
+      ok: false,
+      title: "No common starting point detected within first 5 km",
     });
   }
 
-  const allGood = checks.every((c) => c.ok);
-  const canContinue = allGood || offsetSec !== 0 || (differentDays && syncMode === "distance");
-  if (!allGood) needsAttentionRef.current = true;
+  // 3) Start gap
+  const gapOk = absGap <= 2;
+  checks.push({
+    ok: gapOk,
+    title: gapOk
+      ? "Start times line up"
+      : `Start-time gap: ${fmtGap(gap)}${offsetSec !== 0 ? ` (playback offset set: ${fmtGap(offsetSec)})` : ""}`,
+    detail: gapOk
+      ? undefined
+      : nearWholeHour
+        ? "Fix the TZ first — the gap should then collapse to seconds."
+        : "Click \"Trim head start\" below to cut the earlier rider's lead-in so both tracks begin together.",
+  });
 
+  const allGood = checks.every((c) => c.ok);
+  if (!allGood || commonStart) needsAttentionRef.current = true;
+
+  // Don't show if checks were never triggered for this pair.
   if (!needsAttentionRef.current) return null;
+
+  // Bail-out gates above (!trackA, alignmentConfirmed, !needsAttentionRef) handle
+  // the "nothing to see" cases. Once the modal is open, it stays open until Continue.
 
   return (
     <div className="alignment-modal-backdrop">
@@ -107,9 +114,7 @@ export function AlignmentModal() {
         <div className="alignment-modal-header">
           <h2>Align tracks</h2>
           <div className="sub">
-            {differentDays
-              ? "These tracks are from different dates. Use distance sync to compare the same route."
-              : "The two files don't line up on a shared clock. Adjust time alignment before comparing — you can refine it later in the sidebar."}
+            The two files don't line up on a shared clock. Adjust time alignment before we start comparing — you can refine it later in the sidebar.
           </div>
           <ul className="alignment-checklist">
             {checks.map((c, i) => (
@@ -123,31 +128,14 @@ export function AlignmentModal() {
             ))}
           </ul>
         </div>
-
-        {differentDays ? (
-          <div style={{ padding: "12px 20px" }}>
-            <button
-              className="primary"
-              style={{ width: "100%" }}
-              onClick={() => { setSyncMode("distance"); }}
-            >
-              Switch to distance sync
+        <OffsetControl onContinue={confirmAlignment} />
+        {offsetSec === 0 && (
+          <div className="alignment-modal-actions">
+            <button className="primary" onClick={confirmAlignment}>
+              Continue
             </button>
           </div>
-        ) : (
-          <OffsetControl />
         )}
-
-        <div className="alignment-modal-actions">
-          <button
-            className="primary"
-            onClick={confirmAlignment}
-            disabled={!canContinue}
-            title={canContinue ? "Start comparing" : "Switch to distance sync or set a playback offset to continue"}
-          >
-            Continue
-          </button>
-        </div>
       </div>
     </div>
   );
