@@ -27,6 +27,14 @@ export function ElevationChart() {
     [trackA, trackB],
   );
 
+  const xTicks = useMemo(() => {
+    if (!trackA || !trackB) return undefined;
+    const maxKm = Math.max(trackA.totals.distanceM, trackB.totals.distanceM) / 1000;
+    const ticks: number[] = [];
+    for (let km = 0; km <= maxKm; km += 10) ticks.push(km);
+    return ticks;
+  }, [trackA, trackB]);
+
   if (!trackA || !trackB) return null;
 
   let cursorKm: number | undefined;
@@ -56,6 +64,7 @@ export function ElevationChart() {
             tick={{ fontSize: 10 }}
             type="number"
             domain={["dataMin", "dataMax"]}
+            ticks={xTicks}
             tickFormatter={(v) => `${Math.round(v)}`}
           />
           <YAxis stroke="#8e94a0" tick={{ fontSize: 10 }} width={36} domain={["auto", "auto"]} />
