@@ -68,7 +68,7 @@ export const useStore = create<State>((set, get) => ({
   offsetTouched: false,
   alignmentConfirmed: false,
   segmentM: null,
-  commonStartScanKm: 15,
+  commonStartScanKm: 1,
 
   loadTrack: (slot, parsed, filename) => {
     set((s) => {
