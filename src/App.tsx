@@ -1,5 +1,6 @@
 import { FileLoader } from "./components/FileLoader";
 import { MapFlyover } from "./components/MapFlyover";
+import { Map3D } from "./components/Map3D";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { OffsetControl } from "./components/OffsetControl";
 import { AlignmentModal } from "./components/AlignmentModal";
@@ -20,6 +21,7 @@ export default function App() {
   const clearTrack = useStore((s) => s.clearTrack);
   const bothLoaded = !!trackA && !!trackB;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mapMode, setMapMode] = useState<"2d" | "3d">("2d");
 
   const resetComparison = () => {
     clearTrack("A");
@@ -72,6 +74,14 @@ export default function App() {
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </button>
+            <button
+              className={`header-icon-btn map-mode-btn${mapMode === "3d" ? " active" : ""}`}
+              onClick={() => setMapMode((m) => m === "2d" ? "3d" : "2d")}
+              title={mapMode === "2d" ? "Switch to 3D map" : "Switch to 2D map"}
+              aria-label="Toggle 3D map"
+            >
+              {mapMode === "2d" ? "3D" : "2D"}
+            </button>
           </>
         )}
       </header>
@@ -82,7 +92,7 @@ export default function App() {
         <>
           <div className="main">
             <div className="map-pane">
-              <MapFlyover />
+              {mapMode === "2d" ? <MapFlyover /> : <Map3D />}
               <div className="elevation-strip">
                 <ElevationChart />
               </div>
