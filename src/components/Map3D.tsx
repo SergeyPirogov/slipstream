@@ -213,7 +213,7 @@ export function Map3D() {
     const target = progress * maxValue;
     const arrA = syncMode === "time" ? syncA.time : syncA.distance;
     const arrB = syncMode === "time" ? syncB.time : syncB.distance;
-    const { aValue, bValue } = queryValues(target, syncMode, arrA[arrA.length - 1], arrB[arrB.length - 1], offsetSec);
+    const { aValue, bValue, aFinished, bFinished } = queryValues(target, syncMode, arrA[arrA.length - 1], arrB[arrB.length - 1], offsetSec);
     const posA = positionAtValue(trackA, arrA, aValue);
     const posB = positionAtValue(trackB, arrB, bValue);
 
@@ -223,8 +223,8 @@ export function Map3D() {
     const pxA = map.project([posA.lon, posA.lat]);
     const pxB = map.project([posB.lon, posB.lat]);
 
-    const statsA: Stats = { speedKmh: posA.speedKmh, hr: posA.hr, power: posA.power3s ?? posA.power };
-    const statsB: Stats = { speedKmh: posB.speedKmh, hr: posB.hr, power: posB.power3s ?? posB.power };
+    const statsA: Stats = { speedKmh: aFinished ? 0 : posA.speedKmh, hr: posA.hr, power: aFinished ? undefined : (posA.power3s ?? posA.power) };
+    const statsB: Stats = { speedKmh: bFinished ? 0 : posB.speedKmh, hr: posB.hr, power: bFinished ? undefined : (posB.power3s ?? posB.power) };
 
     positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA.rider, statsA, -TETHER_DX, TETHER_DY);
     positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB.rider, statsB, TETHER_DX, TETHER_DY);
@@ -236,7 +236,8 @@ export function Map3D() {
     const timeDelta = dPosB.elapsedSec + offsetSec - dPosA.elapsedSec;
     const distLabel = `${(gapMeters / 1000).toFixed(2)} km`;
     const timePart = Math.abs(timeDelta) < 0.5 ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
-    const label = `${distLabel} · ${timePart}`;
+    const waitSuffix = (aFinished || bFinished) ? ` · ${aFinished ? trackA.rider : trackB.rider} finished` : "";
+    const label = `${distLabel} · ${timePart}${waitSuffix}`;
     const tint: "pos" | "neg" | "neutral" = Math.abs(timeDelta) < 0.5 ? "neutral" : timeDelta > 0 ? "pos" : "neg";
 
     positionGapOverlay(gapOverlayRef.current, pxA, pxB, label, tint);

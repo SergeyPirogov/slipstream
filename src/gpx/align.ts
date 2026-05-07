@@ -136,22 +136,29 @@ export function buildSyncArrays(track: Track): { time: number[]; distance: numbe
 // - In distance-sync: both riders are queried at the same cumulative distance (offset ignored).
 // - In time-sync: A queries at global t; B queries at (global t - offsetSec). Values are
 //   clamped into each track's valid range so we never over- or under-shoot.
+// aFinished/bFinished: true when the rider has reached their track end and is "waiting".
 export function queryValues(
   target: number,
   mode: SyncMode,
   aMaxValue: number,
   bMaxValue: number,
   offsetSec: number,
-): { aValue: number; bValue: number } {
+): { aValue: number; bValue: number; aFinished: boolean; bFinished: boolean } {
   if (mode === "distance") {
     return {
       aValue: Math.min(target, aMaxValue),
       bValue: Math.min(target, bMaxValue),
+      aFinished: target > aMaxValue,
+      bFinished: target > bMaxValue,
     };
   }
   // time
+  const aValue = Math.max(0, Math.min(target, aMaxValue));
+  const bValue = Math.max(0, Math.min(target - offsetSec, bMaxValue));
   return {
-    aValue: Math.max(0, Math.min(target, aMaxValue)),
-    bValue: Math.max(0, Math.min(target - offsetSec, bMaxValue)),
+    aValue,
+    bValue,
+    aFinished: target > aMaxValue,
+    bFinished: target - offsetSec > bMaxValue,
   };
 }

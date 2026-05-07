@@ -168,6 +168,76 @@ export function MapFlyover() {
       maxZoom: 19,
     }).addTo(map);
 
+    // Tile layer definitions (first is the initial active layer).
+    const LAYER_ICONS = {
+      osm: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"/><path d="M9 4v16M15 6v16"/></svg>`,
+      topo: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19l5-8 4 6 3-4 6 6"/><path d="M3 15l5-7 4 5 3-3 6 5"/></svg>`,
+      sat: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>`,
+      hot: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-8-5-8-12a8 8 0 0116 0c0 7-8 12-8 12z"/><circle cx="12" cy="9" r="2.5"/></svg>`,
+    };
+    const LAYERS: { name: string; icon: string; layer: L.TileLayer }[] = [
+      {
+        name: "OSM",
+        icon: LAYER_ICONS.osm,
+        layer: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 19,
+        }),
+      },
+      {
+        name: "Topo",
+        icon: LAYER_ICONS.topo,
+        layer: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+          attribution: "Map data: © OpenStreetMap, SRTM | style: © OpenTopoMap (CC-BY-SA)",
+          maxZoom: 17,
+        }),
+      },
+      {
+        name: "Satellite",
+        icon: LAYER_ICONS.sat,
+        layer: L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          {
+            attribution: "Tiles © Esri, Maxar, Earthstar Geographics",
+            maxZoom: 19,
+          },
+        ),
+      },
+      {
+        name: "HOT",
+        icon: LAYER_ICONS.hot,
+        layer: L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap France, © OpenStreetMap contributors",
+          maxZoom: 20,
+        }),
+      },
+    ];
+    // Remove the placeholder we already added above — we'll manage layers ourselves.
+    map.eachLayer((l) => { if (l instanceof L.TileLayer) map.removeLayer(l); });
+    let activeLayerIdx = 0;
+    LAYERS[0].layer.addTo(map);
+
+    const LayerCycleControl = L.Control.extend({
+      onAdd() {
+        const a = L.DomUtil.create("a", "leaflet-bar leaflet-control fit-control") as HTMLAnchorElement;
+        a.href = "#";
+        a.setAttribute("role", "button");
+        a.innerHTML = LAYERS[0].icon;
+        a.title = `Switch map layer (now: ${LAYERS[0].name})`;
+        L.DomEvent.on(a, "click", (ev: Event) => {
+          ev.preventDefault();
+          map.removeLayer(LAYERS[activeLayerIdx].layer);
+          activeLayerIdx = (activeLayerIdx + 1) % LAYERS.length;
+          LAYERS[activeLayerIdx].layer.addTo(map);
+          a.innerHTML = LAYERS[activeLayerIdx].icon;
+          a.title = `Switch map layer (now: ${LAYERS[activeLayerIdx].name})`;
+        });
+        L.DomEvent.disableClickPropagation(a);
+        return a;
+      },
+    });
+    new LayerCycleControl({ position: "topright" }).addTo(map);
+
     // Custom control: fit the map bounds to both route lines.
     const FitControl = L.Control.extend({
       onAdd() {
@@ -193,12 +263,68 @@ export function MapFlyover() {
     });
     new FitControl({ position: "topright" }).addTo(map);
 
+    // Zoom preset buttons.
+    const makeZoomPreset = (level: number) =>
+      L.Control.extend({
+        onAdd() {
+          const a = L.DomUtil.create("a", "leaflet-bar leaflet-control fit-control") as HTMLAnchorElement;
+          a.href = "#";
+          a.title = `Zoom to ${level}`;
+          a.setAttribute("role", "button");
+          a.setAttribute("aria-label", `Zoom to ${level}`);
+          a.textContent = String(level);
+          L.DomEvent.on(a, "click", (ev: Event) => {
+            ev.preventDefault();
+            map.setZoom(level);
+          });
+          L.DomEvent.disableClickPropagation(a);
+          return a;
+        },
+      });
+    new (makeZoomPreset(10.8))({ position: "topright" }).addTo(map);
+    new (makeZoomPreset(12.8))({ position: "topright" }).addTo(map);
+    new (makeZoomPreset(15))({ position: "topright" }).addTo(map);
+    new (makeZoomPreset(18))({ position: "topright" }).addTo(map);
+
+    // Zoom-level indicator (updates on every zoom event).
+    const ZoomIndicator = L.Control.extend({
+      onAdd() {
+        const div = L.DomUtil.create("div", "leaflet-bar leaflet-control zoom-indicator");
+        div.textContent = `z ${map.getZoom().toFixed(1)}`;
+        const update = () => {
+          div.textContent = `z ${map.getZoom().toFixed(1)}`;
+        };
+        map.on("zoom zoomend", update);
+        (div as any)._cleanup = () => map.off("zoom zoomend", update);
+        return div;
+      },
+      onRemove(_m: L.Map) {
+        /* no-op; map is removed whole */
+      },
+    });
+    new ZoomIndicator({ position: "bottomright" }).addTo(map);
+
+    // Keyboard: PageUp / PageDown zoom in/out by 0.5 levels. Home/End zoom to 10 / 15.
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "PageUp") {
+        e.preventDefault();
+        map.setZoom(map.getZoom() + 0.5);
+      } else if (e.key === "PageDown") {
+        e.preventDefault();
+        map.setZoom(map.getZoom() - 0.5);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+
     mapRef.current = map;
 
     // Invalidate size once the container is laid out.
     requestAnimationFrame(() => map.invalidateSize());
 
     return () => {
+      window.removeEventListener("keydown", onKey);
       map.remove();
       mapRef.current = null;
       lineARef.current = null;
@@ -285,7 +411,7 @@ export function MapFlyover() {
     const target = progress * maxValue;
     const arrA = syncMode === "time" ? syncA.time : syncA.distance;
     const arrB = syncMode === "time" ? syncB.time : syncB.distance;
-    const { aValue, bValue } = queryValues(
+    const { aValue, bValue, aFinished, bFinished } = queryValues(
       target,
       syncMode,
       arrA[arrA.length - 1],
@@ -306,14 +432,14 @@ export function MapFlyover() {
     const dyB = TETHER_DY;
 
     const statsA: Stats = {
-      speedKmh: posA.speedKmh,
+      speedKmh: aFinished ? 0 : posA.speedKmh,
       hr: posA.hr,
-      power: posA.power3s ?? posA.power,
+      power: aFinished ? undefined : (posA.power3s ?? posA.power),
     };
     const statsB: Stats = {
-      speedKmh: posB.speedKmh,
+      speedKmh: bFinished ? 0 : posB.speedKmh,
       hr: posB.hr,
-      power: posB.power3s ?? posB.power,
+      power: bFinished ? undefined : (posB.power3s ?? posB.power),
     };
 
     // Move markers.
@@ -327,7 +453,9 @@ export function MapFlyover() {
     // Gap between the two riders (meters along route).
     const gapMeters = Math.abs(posA.distFromStart - posB.distFromStart);
 
-    // Ghost-race Δ time at the common distance (shared clock).
+    // Ghost-race Δ time at the common distance.
+    // When one rider has finished, use their total elapsed time vs the other's
+    // elapsed time at that same distance — delta keeps growing as the other continues.
     const refDist = Math.max(
       0,
       Math.min(
@@ -341,11 +469,11 @@ export function MapFlyover() {
     const dPosB = positionAtValue(trackB, syncB.distance, refDist);
     const timeDelta = dPosB.elapsedSec + offsetSec - dPosA.elapsedSec;
 
-    // Distance: always use km with 2 decimals (matches Live panel).
     const distKm = gapMeters / 1000;
     const distLabel = `${distKm.toFixed(2)} km`;
     const timePart = Math.abs(timeDelta) < 0.5 ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
-    const label = `${distLabel} · ${timePart}`;
+    const waitSuffix = (aFinished || bFinished) ? ` · ${aFinished ? trackA.rider : trackB.rider} finished` : "";
+    const label = `${distLabel} · ${timePart}${waitSuffix}`;
 
     const tint: "pos" | "neg" | "neutral" = Math.abs(timeDelta) < 0.5 ? "neutral" : timeDelta > 0 ? "pos" : "neg";
     positionGapOverlay(gapOverlayRef.current, pxA, pxB, label, tint);
