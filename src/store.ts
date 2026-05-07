@@ -205,7 +205,7 @@ export const useStore = create<State>()(persist((set, get) => ({
     syncMode: s.syncMode,
     offsetSec: s.offsetSec,
     offsetTouched: s.offsetTouched,
-    alignmentConfirmed: s.alignmentConfirmed,
+    // alignmentConfirmed is intentionally not persisted — modal always re-runs on load.
     // Preserve rider names separately so we can re-apply after rebuild.
     riderNameA: s.trackA?.rider,
     riderNameB: s.trackB?.rider,
