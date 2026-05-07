@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { Track } from "./gpx/analyze";
 import { analyze } from "./gpx/analyze";
 import type { ParsedGpx } from "./gpx/parse";
@@ -48,7 +49,20 @@ function maybeAutofillOffset(
   return { offsetSec: s.offsetSec };
 }
 
-export const useStore = create<State>((set, get) => ({
+// Revive Date objects in ParsedGpx after JSON.parse (dates become strings).
+function reviveParsed(parsed: ParsedGpx): ParsedGpx {
+  return {
+    ...parsed,
+    points: parsed.points.map((p) => ({ ...p, t: new Date(p.t) })),
+  };
+}
+
+function buildTrackFromRaw(raw: RawEntry): Track {
+  const revived = reviveParsed(raw.parsed);
+  return analyze(revived, raw.filename, 0);
+}
+
+export const useStore = create<State>()(persist((set, get) => ({
   trackA: null,
   trackB: null,
   rawA: null,
@@ -145,6 +159,37 @@ export const useStore = create<State>((set, get) => ({
     }),
 
   confirmAlignment: () => set({ alignmentConfirmed: true }),
+}), {
+  name: "slipstream-state",
+  storage: createJSONStorage(() => localStorage),
+  // Only persist the raw source data + user settings. Derived state (trackA/B)
+  // is rebuilt on rehydration via onRehydrateStorage.
+  partialize: (s) => ({
+    rawA: s.rawA,
+    rawB: s.rawB,
+    syncMode: s.syncMode,
+    offsetSec: s.offsetSec,
+    offsetTouched: s.offsetTouched,
+    alignmentConfirmed: s.alignmentConfirmed,
+    // Preserve rider names separately so we can re-apply after rebuild.
+    riderNameA: s.trackA?.rider,
+    riderNameB: s.trackB?.rider,
+  }),
+  onRehydrateStorage: () => (state) => {
+    if (!state) return;
+    const { rawA, rawB } = state as State & { riderNameA?: string; riderNameB?: string };
+    const names = state as unknown as { riderNameA?: string; riderNameB?: string };
+    if (rawA) {
+      const track = buildTrackFromRaw(rawA);
+      if (names.riderNameA) track.rider = names.riderNameA;
+      state.trackA = track;
+    }
+    if (rawB) {
+      const track = buildTrackFromRaw(rawB);
+      if (names.riderNameB) track.rider = names.riderNameB;
+      state.trackB = track;
+    }
+  },
 }));
 
 export function useMaxValue(): number {
