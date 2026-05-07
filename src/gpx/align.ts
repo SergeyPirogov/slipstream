@@ -20,7 +20,7 @@ export type CommonStart = {
 
 // Scan the first SCAN_M metres of each track to find where it comes closest to the
 // other track's first point. Returns null when the nearest approach exceeds thresholdM.
-export function findCommonStart(a: Track, b: Track, thresholdM = 500, scanM = 1000): CommonStart | null {
+export function findCommonStart(a: Track, b: Track, thresholdM = 500, scanM = 20000): CommonStart | null {
   const SCAN_M = scanM;
   const startA = a.points[0];
   const startB = b.points[0];

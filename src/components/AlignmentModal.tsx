@@ -40,6 +40,7 @@ export function AlignmentModal() {
   }
 
   const commonStartScanKm = useStore((s) => s.commonStartScanKm);
+  const setCommonStartScanKm = useStore((s) => s.setCommonStartScanKm);
 
   const gap = trackA && trackB ? startOffsetSec(trackA, trackB) : 0;
   const commonStart = trackA && trackB ? findCommonStart(trackA, trackB, 500, commonStartScanKm * 1000) : null;
@@ -86,9 +87,13 @@ export function AlignmentModal() {
       detail: parts.length > 0 ? parts.join(", ") + " of lead-in" : undefined,
     });
   } else {
+    const nextScanKm = commonStartScanKm < 50 ? commonStartScanKm + 20 : null;
     checks.push({
       ok: false,
       title: `No common starting point detected within first ${commonStartScanKm} km`,
+      detail: nextScanKm
+        ? `__extend_scan_${nextScanKm}__`
+        : "Tracks may be on different routes.",
     });
   }
 
@@ -143,7 +148,21 @@ export function AlignmentModal() {
                 <span className="mark">{c.note ? "·" : c.ok ? "✓" : "!"}</span>
                 <div>
                   <div className="title">{c.title}</div>
-                  {c.detail && <div className="detail">{c.detail}</div>}
+                  {c.detail && (
+                    <div className="detail">
+                      {c.detail.startsWith("__extend_scan_") ? (() => {
+                        const km = Number(c.detail.replace("__extend_scan_", "").replace("__", ""));
+                        return (
+                          <button
+                            onClick={() => setCommonStartScanKm(km)}
+                            style={{ marginTop: 4, fontSize: 11, padding: "3px 10px", background: "var(--bg-elev-2)", color: "var(--fg)", border: "1px solid var(--border)", borderRadius: 4, cursor: "pointer" }}
+                          >
+                            Extend scan to {km} km
+                          </button>
+                        );
+                      })() : c.detail}
+                    </div>
+                  )}
                 </div>
               </li>
             ))}
