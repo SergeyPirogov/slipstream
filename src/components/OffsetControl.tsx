@@ -60,6 +60,8 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
   const setTzOffsetHours = useStore((s) => s.setTzOffsetHours);
   const trimHeadStart = useStore((s) => s.trimHeadStart);
   const trimToCommonStart = useStore((s) => s.trimToCommonStart);
+  const commonStartScanKm = useStore((s) => s.commonStartScanKm);
+  const setCommonStartScanKm = useStore((s) => s.setCommonStartScanKm);
 
   if (!trackA || !trackB) return null;
 
@@ -67,7 +69,7 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
   const startB = trackB.points[0].t;
   const realGap = Math.round((startB.getTime() - startA.getTime()) / 1000);
 
-  const commonStart = findCommonStart(trackA, trackB);
+  const commonStart = findCommonStart(trackA, trackB, 500, commonStartScanKm * 1000);
   const commonEnd = findCommonEnd(trackA, trackB);
 
   const absGap = Math.abs(realGap);
@@ -105,8 +107,22 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
 
   const startInfoSection = (
     <div style={{ fontSize: 12, color: "var(--fg-dim)", marginBottom: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-        Common starting points
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Common starting points
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--fg-dim)" }}>
+          <span>Scan</span>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={commonStartScanKm}
+            onChange={(e) => setCommonStartScanKm(Number(e.target.value))}
+            style={{ width: 44, background: "var(--bg-elev-2)", color: "var(--fg)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 4px", fontSize: 11, textAlign: "center" }}
+          />
+          <span>km</span>
+        </div>
       </div>
       {commonStart ? (
         <>

@@ -39,8 +39,10 @@ export function AlignmentModal() {
     lastPairKeyRef.current = pairKey;
   }
 
+  const commonStartScanKm = useStore((s) => s.commonStartScanKm);
+
   const gap = trackA && trackB ? startOffsetSec(trackA, trackB) : 0;
-  const commonStart = trackA && trackB ? findCommonStart(trackA, trackB) : null;
+  const commonStart = trackA && trackB ? findCommonStart(trackA, trackB, 500, commonStartScanKm * 1000) : null;
   const commonEnd = trackA && trackB ? findCommonEnd(trackA, trackB) : null;
 
 
@@ -86,7 +88,7 @@ export function AlignmentModal() {
   } else {
     checks.push({
       ok: false,
-      title: "No common starting point detected within first 15 km",
+      title: `No common starting point detected within first ${commonStartScanKm} km`,
     });
   }
 

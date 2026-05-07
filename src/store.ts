@@ -24,6 +24,7 @@ type State = {
   offsetTouched: boolean;
   alignmentConfirmed: boolean;
   segmentM: { start: number; end: number } | null;
+  commonStartScanKm: number;
 
   loadTrack: (slot: Slot, parsed: ParsedGpx, filename: string) => void;
   clearTrack: (slot: Slot) => void;
@@ -42,6 +43,7 @@ type State = {
   confirmAlignment: () => void;
   setSegmentM: (start: number, end: number) => void;
   clearSegmentM: () => void;
+  setCommonStartScanKm: (km: number) => void;
 };
 
 function maybeAutofillOffset(
@@ -66,6 +68,7 @@ export const useStore = create<State>((set, get) => ({
   offsetTouched: false,
   alignmentConfirmed: false,
   segmentM: null,
+  commonStartScanKm: 15,
 
   loadTrack: (slot, parsed, filename) => {
     set((s) => {
@@ -199,6 +202,7 @@ export const useStore = create<State>((set, get) => ({
   confirmAlignment: () => set({ alignmentConfirmed: true }),
   setSegmentM: (start, end) => set({ segmentM: { start, end }, progress: 0, playing: false }),
   clearSegmentM: () => set({ segmentM: null, progress: 0, playing: false }),
+  setCommonStartScanKm: (km) => set({ commonStartScanKm: Math.max(1, Math.round(km)) }),
 }));
 
 export function useMaxValue(): number {
