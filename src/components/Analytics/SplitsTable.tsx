@@ -10,6 +10,14 @@ function fmtDur(sec: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function avgPowerBetweenKm(track: Track, fromKm: number, toKm: number): number | null {
+  const fromM = fromKm * 1000;
+  const toM = toKm * 1000;
+  const pts = track.points.filter((p) => p.distFromStart >= fromM && p.distFromStart <= toM && p.power !== undefined);
+  if (pts.length === 0) return null;
+  return pts.reduce((s, p) => s + p.power!, 0) / pts.length;
+}
+
 function elapsedAtKm(track: Track, targetKm: number): number | null {
   const targetM = targetKm * 1000;
   if (targetM > track.totals.distanceM + 50) return null;
@@ -69,14 +77,15 @@ export function SplitsTable() {
       km,
       aDur,
       bDur,
-      // Speeds are for the real pedaling segment, not the shortened display duration.
       aSpd: aDurReal > 0 ? (segKm / aDurReal) * 3600 : 0,
       bSpd: bDurReal > 0 ? (segKm / bDurReal) * 3600 : 0,
-      // Shared-clock delta: B global time − A global time at this checkpoint.
-      // Positive → A reached this km first on the shared clock (A ahead).
+      aPwr: avgPowerBetweenKm(trackA, prevKm, km),
+      bPwr: avgPowerBetweenKm(trackB, prevKm, km),
       delta: bEndElapsed + offsetSec - aEndElapsed,
     };
   });
+
+  const hasPower = rows.some((r) => r.aPwr !== null || r.bPwr !== null);
 
   return (
     <div className="panel">
@@ -88,17 +97,36 @@ export function SplitsTable() {
             <th>{trackA.rider.slice(0, 10)}</th>
             <th>{trackB.rider.slice(0, 10)}</th>
             <th>Δ overall</th>
+            {hasPower && <th>Δ W</th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.km}>
               <td>{Number.isInteger(r.km) ? r.km.toFixed(0) : r.km.toFixed(1)}</td>
-              <td>{fmtDur(r.aDur)}<br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.aSpd.toFixed(1)} km/h</span></td>
-              <td>{fmtDur(r.bDur)}<br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.bSpd.toFixed(1)} km/h</span></td>
+              <td>
+                {fmtDur(r.aDur)}
+                <br />
+                <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.aSpd.toFixed(1)} km/h</span>
+                {hasPower && r.aPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.aPwr)} W</span></>}
+              </td>
+              <td>
+                {fmtDur(r.bDur)}
+                <br />
+                <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.bSpd.toFixed(1)} km/h</span>
+                {hasPower && r.bPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.bPwr)} W</span></>}
+              </td>
               <td className={r.delta > 0 ? "delta-pos" : r.delta < 0 ? "delta-neg" : ""}>
                 {r.delta === 0 ? "—" : `${r.delta > 0 ? "+" : "−"}${fmtDur(Math.abs(r.delta))}`}
               </td>
+              {hasPower && (() => {
+                const diff = r.aPwr !== null && r.bPwr !== null ? Math.round(r.aPwr - r.bPwr) : null;
+                return (
+                  <td className={diff !== null && diff > 0 ? "delta-pos" : diff !== null && diff < 0 ? "delta-neg" : ""}>
+                    {diff === null ? "—" : diff === 0 ? "0 W" : `${diff > 0 ? "+" : ""}${diff} W`}
+                  </td>
+                );
+              })()}
             </tr>
           ))}
         </tbody>
