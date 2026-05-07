@@ -99,6 +99,7 @@ export function Map3D() {
   const gapOverlayRef = useRef<HTMLDivElement | null>(null);
   const gapLabelTextRef = useRef<string>("");
   const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
+  const prevPosARef = useRef<{ lat: number; lon: number } | null>(null);
   const fittedRef = useRef(false);
   const styleLoadedRef = useRef(false);
 
@@ -228,8 +229,21 @@ export function Map3D() {
     gapLabelTextRef.current = label;
     gapTintRef.current = tint;
 
+    // Compute bearing from rider A's direction of travel.
+    const prev = prevPosARef.current;
+    const bearing = (prev && (Math.abs(posA.lat - prev.lat) > 1e-7 || Math.abs(posA.lon - prev.lon) > 1e-7))
+      ? geodesicBearing(prev.lat, prev.lon, posA.lat, posA.lon)
+      : map.getBearing();
+    prevPosARef.current = { lat: posA.lat, lon: posA.lon };
+
     if (playing) {
-      map.easeTo({ center: [(posA.lon + posB.lon) / 2, (posA.lat + posB.lat) / 2], duration: 300 });
+      map.easeTo({
+        center: [(posA.lon + posB.lon) / 2, (posA.lat + posB.lat) / 2],
+        bearing,
+        pitch: 60,
+        duration: 300,
+        easing: (t) => t,
+      });
     }
   }, [progress, syncMode, maxValue, trackA, trackB, syncA, syncB, playing, offsetSec]);
 
@@ -289,6 +303,15 @@ export function Map3D() {
       </div>
     </div>
   );
+}
+
+function geodesicBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
 function fitBounds(map: maplibregl.Map, points: { lat: number; lon: number }[]) {
