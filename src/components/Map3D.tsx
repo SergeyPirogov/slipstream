@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useStore, useMaxValue } from "../store";
 import { buildSyncArrays, positionAtValue, queryValues } from "../gpx/align";
 
@@ -8,8 +8,6 @@ const COLOR_A = "#f97316";
 const COLOR_B = "#3b82f6";
 const TETHER_DX = 140;
 const TETHER_DY = 0;
-
-const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
 
 type Stats = { speedKmh: number; hr?: number; power?: number };
 
@@ -81,18 +79,18 @@ function positionGapOverlay(
 function makeMarkerEl(color: string): HTMLDivElement {
   const el = document.createElement("div");
   el.style.cssText = `
-    width:14px; height:14px; border-radius:50%;
-    background:${color}; border:2px solid #fff;
-    box-shadow:0 2px 6px rgba(0,0,0,0.5); pointer-events:none;
+    width:14px;height:14px;border-radius:50%;
+    background:${color};border:2px solid #fff;
+    box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:none;
   `;
   return el;
 }
 
 export function Map3D() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markerARef = useRef<mapboxgl.Marker | null>(null);
-  const markerBRef = useRef<mapboxgl.Marker | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markerARef = useRef<maplibregl.Marker | null>(null);
+  const markerBRef = useRef<maplibregl.Marker | null>(null);
   const labelARef = useRef<HTMLDivElement | null>(null);
   const labelBRef = useRef<HTMLDivElement | null>(null);
   const leaderSvgRef = useRef<SVGSVGElement | null>(null);
@@ -102,6 +100,7 @@ export function Map3D() {
   const gapLabelTextRef = useRef<string>("");
   const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
   const fittedRef = useRef(false);
+  const styleLoadedRef = useRef(false);
 
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
@@ -116,58 +115,48 @@ export function Map3D() {
 
   // Init map once.
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !TOKEN) return;
+    if (!containerRef.current || mapRef.current) return;
 
-    mapboxgl.accessToken = TOKEN;
-
-    const map = new mapboxgl.Map({
+    const map = new maplibregl.Map({
       container: containerRef.current,
-      style: "mapbox://styles/mapbox/satellite-streets-v12",
+      // OpenFreeMap liberty style — free, no token
+      style: "https://tiles.openfreemap.org/styles/liberty",
       center: [24, 49.8],
       zoom: 10,
       pitch: 60,
       bearing: 0,
-      antialias: true,
     });
 
-    map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
 
     map.on("load", () => {
-      // Terrain
-      map.addSource("mapbox-dem", {
-        type: "raster-dem",
-        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-        tileSize: 512,
-        maxzoom: 14,
-      });
-      map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+      styleLoadedRef.current = true;
 
-      // Sky layer
-      map.addLayer({
-        id: "sky",
-        type: "sky",
-        paint: {
-          "sky-type": "atmosphere",
-          "sky-atmosphere-sun": [0.0, 90.0],
-          "sky-atmosphere-sun-intensity": 15,
-        },
-      });
-
-      // Track lines (empty initially, filled when tracks load)
       map.addSource("track-a", { type: "geojson", data: { type: "Feature", geometry: { type: "LineString", coordinates: [] }, properties: {} } });
       map.addSource("track-b", { type: "geojson", data: { type: "Feature", geometry: { type: "LineString", coordinates: [] }, properties: {} } });
 
       map.addLayer({ id: "track-a-line", type: "line", source: "track-a", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": COLOR_A, "line-width": 4, "line-opacity": 0.9 } });
       map.addLayer({ id: "track-b-line", type: "line", source: "track-b", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": COLOR_B, "line-width": 4, "line-opacity": 0.9 } });
+
+      // If tracks were already loaded before style finished, render them now.
+      const tA = trackA;
+      const tB = trackB;
+      if (tA) {
+        (map.getSource("track-a") as maplibregl.GeoJSONSource).setData({ type: "Feature", geometry: { type: "LineString", coordinates: tA.points.map((p) => [p.lon, p.lat]) }, properties: {} });
+        markerARef.current?.setLngLat([tA.points[0].lon, tA.points[0].lat]);
+      }
+      if (tB) {
+        (map.getSource("track-b") as maplibregl.GeoJSONSource).setData({ type: "Feature", geometry: { type: "LineString", coordinates: tB.points.map((p) => [p.lon, p.lat]) }, properties: {} });
+        markerBRef.current?.setLngLat([tB.points[0].lon, tB.points[0].lat]);
+      }
+      if (!fittedRef.current && tA && tB) {
+        fitBounds(map, tA.points.concat(tB.points));
+        fittedRef.current = true;
+      }
     });
 
-    // Markers
-    markerARef.current = new mapboxgl.Marker({ element: makeMarkerEl(COLOR_A), anchor: "center" })
-      .setLngLat([24, 49.8])
-      .addTo(map);
-    markerBRef.current = new mapboxgl.Marker({ element: makeMarkerEl(COLOR_B), anchor: "center" })
-      .setLngLat([24, 49.8])
-      .addTo(map);
+    markerARef.current = new maplibregl.Marker({ element: makeMarkerEl(COLOR_A), anchor: "center" }).setLngLat([24, 49.8]).addTo(map);
+    markerBRef.current = new maplibregl.Marker({ element: makeMarkerEl(COLOR_B), anchor: "center" }).setLngLat([24, 49.8]).addTo(map);
 
     mapRef.current = map;
 
@@ -177,44 +166,27 @@ export function Map3D() {
       markerARef.current = null;
       markerBRef.current = null;
       fittedRef.current = false;
+      styleLoadedRef.current = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Render tracks when loaded.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map || !styleLoadedRef.current) return;
 
-    const update = () => {
-      if (trackA) {
-        const coords = trackA.points.map((p) => [p.lon, p.lat]);
-        (map.getSource("track-a") as mapboxgl.GeoJSONSource)?.setData({ type: "Feature", geometry: { type: "LineString", coordinates: coords }, properties: {} });
-        markerARef.current?.setLngLat([trackA.points[0].lon, trackA.points[0].lat]);
-      }
-      if (trackB) {
-        const coords = trackB.points.map((p) => [p.lon, p.lat]);
-        (map.getSource("track-b") as mapboxgl.GeoJSONSource)?.setData({ type: "Feature", geometry: { type: "LineString", coordinates: coords }, properties: {} });
-        markerBRef.current?.setLngLat([trackB.points[0].lon, trackB.points[0].lat]);
-      }
-
-      // Fit bounds once when both tracks first load.
-      if (!fittedRef.current && trackA && trackB) {
-        fittedRef.current = true;
-        const allPts = [...trackA.points, ...trackB.points];
-        const lngs = allPts.map((p) => p.lon);
-        const lats = allPts.map((p) => p.lat);
-        const bounds = new mapboxgl.LngLatBounds(
-          [Math.min(...lngs), Math.min(...lats)],
-          [Math.max(...lngs), Math.max(...lats)],
-        );
-        map.fitBounds(bounds, { padding: 60, pitch: 60, duration: 1000 });
-      }
-    };
-
-    if (map.isStyleLoaded()) {
-      update();
-    } else {
-      map.once("load", update);
+    if (trackA) {
+      (map.getSource("track-a") as maplibregl.GeoJSONSource)?.setData({ type: "Feature", geometry: { type: "LineString", coordinates: trackA.points.map((p) => [p.lon, p.lat]) }, properties: {} });
+      markerARef.current?.setLngLat([trackA.points[0].lon, trackA.points[0].lat]);
+    }
+    if (trackB) {
+      (map.getSource("track-b") as maplibregl.GeoJSONSource)?.setData({ type: "Feature", geometry: { type: "LineString", coordinates: trackB.points.map((p) => [p.lon, p.lat]) }, properties: {} });
+      markerBRef.current?.setLngLat([trackB.points[0].lon, trackB.points[0].lat]);
+    }
+    if (!fittedRef.current && trackA && trackB) {
+      fitBounds(map, trackA.points.concat(trackB.points));
+      fittedRef.current = true;
     }
   }, [trackA, trackB]);
 
@@ -257,13 +229,11 @@ export function Map3D() {
     gapTintRef.current = tint;
 
     if (playing) {
-      const midLng = (posA.lon + posB.lon) / 2;
-      const midLat = (posA.lat + posB.lat) / 2;
-      map.easeTo({ center: [midLng, midLat], duration: 300 });
+      map.easeTo({ center: [(posA.lon + posB.lon) / 2, (posA.lat + posB.lat) / 2], duration: 300 });
     }
   }, [progress, syncMode, maxValue, trackA, trackB, syncA, syncB, playing, offsetSec]);
 
-  // Re-anchor labels during pan/zoom.
+  // Re-anchor labels on pan/zoom.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -281,16 +251,6 @@ export function Map3D() {
     map.on("zoom", handler);
     return () => { map.off("move", handler); map.off("zoom", handler); };
   }, [trackA, trackB]);
-
-  if (!TOKEN) {
-    return (
-      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: "#aaa", background: "#111" }}>
-        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-        <p style={{ margin: 0, fontSize: 14 }}>3D map requires a Mapbox token.</p>
-        <p style={{ margin: 0, fontSize: 12 }}>Set <code>VITE_MAPBOX_TOKEN</code> in your <code>.env</code> file.</p>
-      </div>
-    );
-  }
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -328,5 +288,14 @@ export function Map3D() {
         </div>
       </div>
     </div>
+  );
+}
+
+function fitBounds(map: maplibregl.Map, points: { lat: number; lon: number }[]) {
+  const lngs = points.map((p) => p.lon);
+  const lats = points.map((p) => p.lat);
+  map.fitBounds(
+    [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+    { padding: 60, pitch: 60, duration: 1000 },
   );
 }
