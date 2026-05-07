@@ -238,16 +238,20 @@ export function queryValues(
   aMaxValue: number,
   bMaxValue: number,
   offsetSec: number,
-): { aValue: number; bValue: number } {
+): { aValue: number; bValue: number; aFinished: boolean; bFinished: boolean } {
   if (mode === "distance") {
     return {
       aValue: Math.min(target, aMaxValue),
       bValue: Math.min(target, bMaxValue),
+      aFinished: target >= aMaxValue,
+      bFinished: target >= bMaxValue,
     };
   }
   // time
   return {
     aValue: Math.max(0, Math.min(target, aMaxValue)),
     bValue: Math.max(0, Math.min(target - offsetSec, bMaxValue)),
+    aFinished: target >= aMaxValue,
+    bFinished: target - offsetSec >= bMaxValue,
   };
 }
