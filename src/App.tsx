@@ -84,7 +84,7 @@ export default function App() {
         <>
           <div className="main">
             <div className="map-pane">
-              <div style={{ position: "relative", flex: "1 1 0", minHeight: 0 }}>
+              <div style={{ position: "relative", minHeight: 0 }}>
                 {mapMode === "2d" ? <MapFlyover /> : <Map3D />}
                 <button
                   className={`map-mode-toggle${mapMode === "3d" ? " active" : ""}`}
