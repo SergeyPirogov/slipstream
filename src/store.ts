@@ -37,6 +37,7 @@ type State = {
   resetOffset: () => void;
   autoDetectOffset: () => void;
   trimHeadStart: () => void;
+  trimHeadStartByDistance: (slot: Slot, meters: number) => void;
   confirmAlignment: () => void;
 };
 
@@ -156,6 +157,40 @@ export const useStore = create<State>()(persist((set, get) => ({
         : { ...s, trackB: rebuilt, rawB: { parsed: trimmedParsed, filename: raw.filename } };
 
       return { ...base, offsetSec: 0, offsetTouched: true, progress: 0, playing: false };
+    }),
+
+  trimHeadStartByDistance: (slot, meters) =>
+    set((s) => {
+      const raw = slot === "A" ? s.rawA : s.rawB;
+      const prev = slot === "A" ? s.trackA : s.trackB;
+      if (!raw || meters <= 0) return s;
+      const tzHours = prev?.tzOffsetHours ?? 0;
+
+      // Walk cumulative haversine distance until we exceed `meters`, then keep the rest.
+      const pts = raw.parsed.points;
+      let cumDist = 0;
+      let cutIdx = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1];
+        const curr = pts[i];
+        const dLat = (curr.lat - prev.lat) * Math.PI / 180;
+        const dLon = (curr.lon - prev.lon) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        cumDist += 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        if (cumDist >= meters) { cutIdx = i; break; }
+      }
+      if (cutIdx === 0) return s;
+
+      const kept = pts.slice(cutIdx);
+      if (kept.length < 2) return s;
+
+      const trimmedParsed = { ...raw.parsed, points: kept };
+      const rebuilt = analyze(trimmedParsed, raw.filename, tzHours);
+      if (prev?.rider) rebuilt.rider = prev.rider;
+
+      return slot === "A"
+        ? { ...s, trackA: rebuilt, rawA: { parsed: trimmedParsed, filename: raw.filename }, progress: 0, playing: false }
+        : { ...s, trackB: rebuilt, rawB: { parsed: trimmedParsed, filename: raw.filename }, progress: 0, playing: false };
     }),
 
   confirmAlignment: () => set({ alignmentConfirmed: true }),
