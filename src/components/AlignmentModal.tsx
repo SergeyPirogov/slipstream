@@ -86,7 +86,7 @@ export function AlignmentModal() {
   } else {
     checks.push({
       ok: false,
-      title: "No common starting point detected within first 5 km",
+      title: "No common starting point detected within first 15 km",
     });
   }
 
