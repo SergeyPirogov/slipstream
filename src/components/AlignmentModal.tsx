@@ -88,13 +88,13 @@ export function AlignmentModal() {
   });
 
   const allGood = checks.every((c) => c.ok);
+  // Allow continuing if the user has set a manual offset — they've acknowledged
+  // the gap and chosen to handle it via playback sync instead of trimming/TZ fix.
+  const canContinue = allGood || offsetSec !== 0;
   if (!allGood) needsAttentionRef.current = true;
 
   // Don't show if checks were never triggered for this pair.
   if (!needsAttentionRef.current) return null;
-
-  // Bail-out gates above (!trackA, alignmentConfirmed, !needsAttentionRef) handle
-  // the "nothing to see" cases. Once the modal is open, it stays open until Continue.
 
   return (
     <div className="alignment-modal-backdrop">
@@ -121,11 +121,19 @@ export function AlignmentModal() {
           <button
             className="primary"
             onClick={confirmAlignment}
-            disabled={!allGood}
-            title={allGood ? "Start comparing" : "Resolve the warnings above to continue"}
+            disabled={!canContinue}
+            title={canContinue ? "Start comparing" : "Set a playback offset or fix the warnings above to continue"}
           >
             Continue
           </button>
+          {!allGood && (
+            <button
+              onClick={confirmAlignment}
+              title="Skip alignment and continue anyway"
+            >
+              Skip
+            </button>
+          )}
         </div>
       </div>
     </div>
