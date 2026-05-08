@@ -3,6 +3,7 @@ import { parseGpxFile } from "../gpx/parse";
 import { parseFitFile } from "../gpx/parseFit";
 import { useStore } from "../store";
 import { StravaPanel } from "./StravaPanel";
+import { KomootPanel } from "./KomootPanel";
 import { startOAuth } from "../strava/auth";
 
 export function PlanEmptyState({
@@ -91,6 +92,13 @@ export function PlanEmptyState({
         </label>
 
         {error && <p className="mes-error">{error}</p>}
+
+        <div className="mes-divider"><span>or</span></div>
+        <KomootPanel
+          onLoadStart={() => setPlanRouteLoading(true)}
+          onRouteLoaded={onRouteLoaded}
+          onLoadError={() => setPlanRouteLoading(false)}
+        />
 
         {!__GITHUB_PAGES__ && (
           <>
