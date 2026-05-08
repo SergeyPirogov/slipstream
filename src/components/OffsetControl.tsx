@@ -166,7 +166,7 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
               onClick={() => { trimToCommonStart(); onContinue?.(); }}
               title={tzNotFixed ? "Fix the timezone mismatch first" : "Trim each track to its common start and end points"}
             >
-              Trim to common segment{onContinue ? " & continue" : ""}
+              {onContinue ? "Apply & analyze" : "Trim to common segment"}
             </button>
           ) : onContinue && (
             <button

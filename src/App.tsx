@@ -40,6 +40,7 @@ export default function App() {
   const trackB = useStore((s) => s.trackB);
   const planRoute = useStore((s) => s.plan.route);
   const clearTrack = useStore((s) => s.clearTrack);
+  const clearAllTracks = useStore((s) => s.clearAllTracks);
   const clearRoute = useStore((s) => s.clearRoute);
   const loadRoute = useStore((s) => s.loadRoute);
   const loadTrack = useStore((s) => s.loadTrack);
@@ -117,8 +118,7 @@ export default function App() {
   }, [loadTrack]);
 
   const resetComparison = () => {
-    clearTrack("A");
-    clearTrack("B");
+    clearAllTracks();
   };
 
   const resetPlan = () => {
@@ -237,7 +237,7 @@ export default function App() {
                   )}
                   <div className="crp-divider" />
                   <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); resetComparison(); }}>
-                    <TrashIcon /> Clear {bothLoaded ? "both rides" : "ride"}
+                    <TrashIcon /> Clear all
                   </button>
                 </div>
               )}

@@ -75,6 +75,7 @@ type State = {
 
   loadTrack: (slot: Slot, parsed: ParsedGpx, filename: string) => void;
   clearTrack: (slot: Slot) => void;
+  clearAllTracks: () => void;
   setRiderName: (slot: Slot, name: string) => void;
   setTzOffsetHours: (slot: Slot, hours: number) => void;
   setSyncMode: (mode: SyncMode) => void;
@@ -256,6 +257,10 @@ export const useStore = create<State>((set, get) => ({
       }
       return { ...s, trackA: null, rawA: null };
     });
+  },
+
+  clearAllTracks: () => {
+    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, offsetSec: 0, offsetTouched: false, segmentM: null, wind: null }));
   },
 
   setRiderName: (slot, name) => {
