@@ -1287,6 +1287,46 @@ html, body, #root {
   height: 100%;
   justify-content: center;
 }
+
+.mes-drop--rider:hover, .mes-drop--rider.dragging {
+  border-color: var(--rider-accent, var(--accent));
+  background: color-mix(in srgb, var(--rider-accent, var(--accent)) 8%, transparent);
+  color: var(--fg);
+}
+
+.mes-rider-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: block;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.mes-rider-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.mes-drop-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--fg);
+}
+
+.mes-drop-stat {
+  font-size: 13px;
+  color: var(--fg-dim);
+  margin: 0;
+}
+
+.mes-note {
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-top: 4px;
+}
 .mes-drop:hover, .mes-drop.dragging {
   border-color: var(--accent);
   background: rgba(34, 197, 94, 0.05);
