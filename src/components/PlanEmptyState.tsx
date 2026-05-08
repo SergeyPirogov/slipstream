@@ -110,13 +110,18 @@ export function PlanEmptyState({
                 onLoadError={() => setPlanRouteLoading(false)}
               />
             ) : (
-              <button className="mes-strava-btn" onClick={startOAuth}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-                  <line x1="4" y1="22" x2="4" y2="15"/>
-                </svg>
-                Connect Strava to browse routes
-              </button>
+              <div className="import-connect-card">
+                <div className="import-connect-header">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#FC4C02" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116zM9.2 6.708l2.09 4.116h3.065L9.2 0 4.051 10.172h3.066l2.083-4.116z" />
+                  </svg>
+                  <span className="import-connect-title">Import from Strava</span>
+                </div>
+                <p className="import-connect-hint">Browse your saved routes and planned rides directly from Strava.</p>
+                <button className="import-connect-btn import-connect-btn--strava" onClick={startOAuth}>
+                  Connect Strava
+                </button>
+              </div>
             )}
           </>
         )}

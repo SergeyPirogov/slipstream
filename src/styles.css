@@ -1379,6 +1379,51 @@ html, body, #root {
 }
 .mes-strava-btn:hover { opacity: 0.88; }
 
+/* ---------- Import connect cards (Strava / future) ---------- */
+.import-connect-card {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.import-connect-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-connect-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.import-connect-hint {
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.import-connect-btn {
+  align-self: flex-start;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  color: #fff;
+}
+.import-connect-btn:hover { opacity: 0.85; }
+.import-connect-btn--strava { background: #FC4C02; }
+
 /* ---------- Komoot panel ---------- */
 .komoot-panel {
   width: 100%;
