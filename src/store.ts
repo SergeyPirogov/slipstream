@@ -69,6 +69,7 @@ type State = {
   offsetSec: number;
   offsetTouched: boolean;
   alignmentConfirmed: boolean;
+  analysisStarted: boolean;
   segmentM: { start: number; end: number } | null;
   commonStartScanKm: number;
   wind: { speedKmh: number; directionDeg: number; tempC?: number; weatherCode?: number } | null;
@@ -76,6 +77,7 @@ type State = {
   loadTrack: (slot: Slot, parsed: ParsedGpx, filename: string) => void;
   clearTrack: (slot: Slot) => void;
   clearAllTracks: () => void;
+  startAnalysis: () => void;
   setRiderName: (slot: Slot, name: string) => void;
   setTzOffsetHours: (slot: Slot, hours: number) => void;
   setSyncMode: (mode: SyncMode) => void;
@@ -232,6 +234,7 @@ export const useStore = create<State>((set, get) => ({
   offsetSec: 0,
   offsetTouched: false,
   alignmentConfirmed: false,
+  analysisStarted: false,
   segmentM: null,
   commonStartScanKm: 20,
   wind: null,
@@ -260,8 +263,10 @@ export const useStore = create<State>((set, get) => ({
   },
 
   clearAllTracks: () => {
-    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, offsetSec: 0, offsetTouched: false, segmentM: null, wind: null }));
+    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, analysisStarted: false, offsetSec: 0, offsetTouched: false, segmentM: null, wind: null }));
   },
+
+  startAnalysis: () => set({ analysisStarted: true }),
 
   setRiderName: (slot, name) => {
     set((s) => {

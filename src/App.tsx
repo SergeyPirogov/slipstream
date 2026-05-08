@@ -45,6 +45,7 @@ export default function App() {
   const loadRoute = useStore((s) => s.loadRoute);
   const loadTrack = useStore((s) => s.loadTrack);
   const setPlanRouteLoading = useStore((s) => s.setPlanRouteLoading);
+  const analysisStarted = useStore((s) => s.analysisStarted);
   const anyLoaded = !!trackA;
   const bothLoaded = !!trackA && !!trackB;
   const planLoaded = !!planRoute;
@@ -161,7 +162,7 @@ export default function App() {
         </div>
 
         <div className="header-right">
-          {anyLoaded && appMode === "compare" && (
+          {anyLoaded && analysisStarted && appMode === "compare" && (
             <div className="header-route-pill" ref={changeRidesRef}>
               {bothLoaded ? (
                 <div className="compare-pill-riders">
@@ -363,7 +364,7 @@ export default function App() {
           />
         )
       ) : (
-        anyLoaded ? (
+        anyLoaded && analysisStarted ? (
           <>
             <div className="main">
               <div className="map-pane">
