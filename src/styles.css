@@ -1058,6 +1058,241 @@ html, body, #root {
   opacity: 0.7;
 }
 
+/* ---------- True landing (mode picker) ---------- */
+.landing--picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 40px 24px 60px;
+  gap: 0;
+}
+
+.landing-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+.landing-title {
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+.landing-subtitle {
+  font-size: 15px;
+  color: var(--fg-dim);
+  margin: 0;
+}
+
+.landing-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  width: 100%;
+  max-width: 900px;
+}
+@media (max-width: 700px) {
+  .landing-cards { grid-template-columns: 1fr; }
+}
+
+.landing-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  color: var(--fg);
+}
+.landing-card:hover {
+  border-color: rgba(255,255,255,0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+.landing-card:active { transform: translateY(0); }
+
+.landing-card-illo {
+  width: 100%;
+  aspect-ratio: 3/2;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.landing-card-illo .hero-illo {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.landing-card-body {
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.landing-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.landing-card-desc {
+  font-size: 13px;
+  color: var(--fg-dim);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.landing-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  margin-top: 6px;
+}
+
+/* ---------- Mode empty states ---------- */
+.mode-empty-state {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 24px 80px;
+  background:
+    radial-gradient(700px 400px at 80% -5%, rgba(34, 197, 94, 0.07), transparent 60%),
+    var(--bg);
+}
+
+.mes-content {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.mes-content--compare {
+  max-width: 700px;
+}
+
+.mes-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.mes-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.mes-sub {
+  font-size: 14px;
+  color: var(--fg-dim);
+  margin: 0 0 8px;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+.mes-drop {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 20px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  color: var(--fg-dim);
+  font-size: 14px;
+}
+.mes-drop:hover, .mes-drop.dragging {
+  border-color: var(--accent);
+  background: rgba(34, 197, 94, 0.05);
+  color: var(--fg);
+}
+
+.mes-drop-hint {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.mes-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin: 0;
+}
+
+.mes-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 4px 0;
+  color: var(--fg-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.mes-divider::before, .mes-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.mes-strava-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #fc4c02;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.mes-strava-btn:hover { opacity: 0.88; }
+
 /* ---------- Strava import ---------- */
 .plan-import-divider {
   display: flex;

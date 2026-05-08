@@ -13,6 +13,9 @@ export type AppMode = "compare" | "plan";
 
 export type Slot = "A" | "B";
 
+const STORAGE_KEY_MODE = "slipstream_mode_selected";
+const STORAGE_KEY_APP_MODE = "slipstream_app_mode";
+
 type RawEntry = { parsed: ParsedGpx; filename: string };
 
 export type PlanState = {
@@ -36,10 +39,13 @@ export type PlanState = {
 
 type State = {
   appMode: AppMode;
+  modeSelected: boolean;
   plan: PlanState;
   stravaToken: StravaToken | null;
 
   setAppMode: (m: AppMode) => void;
+  selectMode: (m: AppMode) => void;
+  goToLanding: () => void;
   setStravaToken: (token: StravaToken | null) => void;
   disconnectStrava: () => void;
   loadRoute: (parsed: ParsedGpx, filename: string) => void;
@@ -101,8 +107,25 @@ function maybeAutofillOffset(
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export const useStore = create<State>((set, get) => ({
-  appMode: "plan",
+  appMode: (localStorage.getItem(STORAGE_KEY_APP_MODE) as AppMode) ?? "plan",
+  modeSelected: localStorage.getItem(STORAGE_KEY_MODE) === "1",
   stravaToken: getStoredToken(),
+
+  setAppMode: (m) => {
+    localStorage.setItem(STORAGE_KEY_APP_MODE, m);
+    set({ appMode: m });
+  },
+
+  selectMode: (m) => {
+    localStorage.setItem(STORAGE_KEY_MODE, "1");
+    localStorage.setItem(STORAGE_KEY_APP_MODE, m);
+    set({ appMode: m, modeSelected: true });
+  },
+
+  goToLanding: () => {
+    localStorage.removeItem(STORAGE_KEY_MODE);
+    set({ modeSelected: false });
+  },
 
   setStravaToken: (token) => set({ stravaToken: token }),
   disconnectStrava: () => {
@@ -123,8 +146,6 @@ export const useStore = create<State>((set, get) => ({
     routeLoading: false,
     hoverKm: null,
   },
-
-  setAppMode: (m) => set({ appMode: m }),
 
   setPlanRouteLoading: (v) => set((s) => ({ plan: { ...s.plan, routeLoading: v } })),
 

@@ -187,9 +187,6 @@ export function RoutePlannerMap() {
 
         const arrowMarker = L.marker([pt.lat, pt.lon], { icon: windArrowIcon(seg.windDirDeg, seg.windComponent) }).addTo(map);
         arrowsRef.current.push(arrowMarker);
-
-        const tempMarker = L.marker([pt.lat, pt.lon], { icon: tempLabelIcon(seg.tempC) }).addTo(map);
-        tempLabelsRef.current.push(tempMarker);
       }
     } else {
       const latlngs = pts.map((p) => [p.lat, p.lon] as [number, number]);
