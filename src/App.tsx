@@ -173,7 +173,7 @@ export default function App() {
                 className={`header-route-change${changeRidesOpen ? " active" : ""}`}
                 onClick={() => setChangeRidesOpen((v) => !v)}
               >
-                ↺ Change
+                {!bothLoaded ? "+ Add rider" : "↺ Change"}
               </button>
               {bothLoaded && (
                 <button
