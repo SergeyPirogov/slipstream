@@ -105,7 +105,8 @@ export function ElevationChart() {
           <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>Drag to select segment</span>
         )}
       </div>
-      <ResponsiveContainer width="100%" height={180}>
+      <div style={{ width: "100%", overflow: "hidden" }}>
+      <ResponsiveContainer width="99%" height={180}>
         <ComposedChart
           data={data}
           margin={{ top: 5, right: 10, bottom: 5, left: 0 }}
@@ -159,6 +160,7 @@ export function ElevationChart() {
           {cursorKm !== undefined && <ReferenceLine x={cursorKm} stroke="#22c55e" strokeDasharray="3 3" />}
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
       {trackA.climbs.length > 0 && (
         <div style={{ fontSize: 11, color: "var(--fg-dim)", marginTop: 6 }}>
           {trackA.climbs.length} climb{trackA.climbs.length === 1 ? "" : "s"} detected (≥3% for ≥500m)

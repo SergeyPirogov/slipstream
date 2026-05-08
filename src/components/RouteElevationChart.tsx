@@ -109,7 +109,8 @@ export function RouteElevationChart() {
   return (
     <div className="panel route-elev-panel">
       <h3>Elevation{hasWind ? " & wind" : ""}</h3>
-      <ResponsiveContainer width="100%" height={120}>
+      <div style={{ width: "100%", overflow: "hidden" }}>
+      <ResponsiveContainer width="99%" height={120}>
         <ComposedChart
           data={data}
           margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -189,6 +190,7 @@ export function RouteElevationChart() {
           )}
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }

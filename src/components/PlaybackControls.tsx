@@ -139,6 +139,7 @@ export function PlaybackControls() {
         <input
           className="scrub"
           type="range"
+          style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }}
           min={segBounds ? Math.round(segBounds.startFrac * 1000) : 0}
           max={segBounds ? Math.round(segBounds.endFrac * 1000) : 1000}
           value={Math.round(progress * 1000)}
@@ -151,6 +152,7 @@ export function PlaybackControls() {
       </div>
 
       <span
+        className="controls-time"
         style={{
           fontVariantNumeric: "tabular-nums",
           minWidth: 150,

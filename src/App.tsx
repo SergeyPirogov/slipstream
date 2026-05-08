@@ -127,6 +127,41 @@ function RiderPickerPopover({ onClose, onClearAll }: {
   );
 }
 
+function WindBar() {
+  const wind = useStore((s) => s.wind);
+  if (!wind) return null;
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const cardinal = dirs[Math.round(wind.directionDeg / 45) % 8];
+  const wLabel = (code: number) => {
+    if (code === 0) return "Clear";
+    if (code === 1) return "Mainly clear";
+    if (code === 2) return "Partly cloudy";
+    if (code === 3) return "Overcast";
+    if (code <= 49) return "Fog";
+    if (code <= 59) return "Drizzle";
+    if (code <= 67) return "Rain";
+    if (code <= 77) return "Snow";
+    if (code <= 82) return "Rain showers";
+    if (code <= 86) return "Snow showers";
+    if (code <= 99) return "Thunderstorm";
+    return "";
+  };
+  return (
+    <div className="map-wind-bar">
+      <svg width="16" height="16" viewBox="-8 -8 16 16" style={{ flexShrink: 0 }}>
+        <g transform={`rotate(${wind.directionDeg + 180})`}>
+          <line x1="0" y1="6" x2="0" y2="-6" stroke="#facc15" strokeWidth="1.5" strokeLinecap="round" />
+          <polygon points="0,-8 2.5,-3.5 -2.5,-3.5" fill="#facc15" />
+        </g>
+      </svg>
+      <span><strong>{Math.round(wind.speedKmh)} km/h</strong> from {cardinal}</span>
+      {wind.tempC !== undefined && (
+        <span>{Math.round(wind.tempC)}°C{wind.weatherCode !== undefined ? ` · ${wLabel(wind.weatherCode)}` : ""}</span>
+      )}
+    </div>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -244,6 +279,20 @@ export default function App() {
           onClick={goToLanding}
           title="Back to home"
         >Slipstream</h1>
+
+        <a
+          className="patreon-btn patreon-btn--logo"
+          href="https://patreon.com/automation_remarks"
+          target="_blank"
+          rel="noreferrer noopener"
+          title="Support this project on Patreon"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <circle cx="15" cy="9.5" r="6.5" />
+            <rect x="2" y="3" width="3.5" height="18" />
+          </svg>
+          <span>Support</span>
+        </a>
 
         <div className="mode-switcher">
           <button
@@ -441,6 +490,7 @@ export default function App() {
             <div className="main">
               <div className="map-pane">
                 <MapFlyover />
+                <WindBar />
                 <div className="elevation-strip">
                   <ElevationChart />
                 </div>

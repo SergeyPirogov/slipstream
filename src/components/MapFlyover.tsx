@@ -548,7 +548,7 @@ export function MapFlyover() {
       )}
 
       {wind && (
-        <div style={{
+        <div className="map-wind-overlay" style={{
           position: "absolute", bottom: 28, left: 10, zIndex: 1000,
           background: "rgba(30,36,50,0.62)", border: "1px solid rgba(255,255,255,0.15)",
           borderRadius: 8, padding: "7px 11px",

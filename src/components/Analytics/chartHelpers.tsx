@@ -77,7 +77,8 @@ export function TwoSeriesLineChart({
   segmentM?: { start: number; end: number } | null;
 }) {
   return (
-    <ResponsiveContainer width="100%" height={160}>
+    <div style={{ width: "100%", overflow: "hidden" }}>
+    <ResponsiveContainer width="99%" height={160}>
       <ComposedChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
         <CartesianGrid stroke="#2a2f3a" strokeDasharray="3 3" />
         <XAxis
@@ -106,6 +107,7 @@ export function TwoSeriesLineChart({
         {cursorKm !== undefined && <ReferenceLine x={cursorKm} stroke="#22c55e" strokeDasharray="3 3" />}
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -148,7 +150,8 @@ export function SingleSeriesLineChart({
 }) {
   const gradId = `sg-${color.replace(/[^a-z0-9]/gi, "")}`;
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <div style={{ width: "100%", overflow: "hidden" }}>
+    <ResponsiveContainer width="99%" height={height}>
       <ComposedChart data={data} margin={{ top: 4, right: 10, bottom: 4, left: 0 }}>
         {area && (
           <defs>
@@ -181,5 +184,6 @@ export function SingleSeriesLineChart({
         )}
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   );
 }
