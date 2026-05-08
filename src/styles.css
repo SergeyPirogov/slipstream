@@ -1410,7 +1410,7 @@ html, body, #root {
 }
 
 .import-connect-btn {
-  align-self: flex-start;
+  align-self: center;
   border: none;
   border-radius: 6px;
   padding: 7px 16px;
