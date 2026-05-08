@@ -19,7 +19,7 @@ import { useStore } from "./store";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { parseGpxFile } from "./gpx/parse";
 import { parseFitFile } from "./gpx/parseFit";
-import { startOAuth } from "./strava/auth";
+import { startOAuth, handleOAuthCallback } from "./strava/auth";
 
 export default function App() {
   const appMode = useStore((s) => s.appMode);
@@ -47,6 +47,20 @@ export default function App() {
 
   const stravaTokenRaw = useStore((s) => s.stravaToken);
   const stravaToken = __GITHUB_PAGES__ ? null : stravaTokenRaw;
+  const setStravaToken = useStore((s) => s.setStravaToken);
+
+  // Handle Strava OAuth redirect — must be at App level so it fires regardless of which view is mounted
+  useEffect(() => {
+    if (__GITHUB_PAGES__ || !window.location.search.includes("code=")) return;
+    handleOAuthCallback()
+      .then((token) => {
+        if (token) {
+          setStravaToken(token);
+          selectMode("plan");
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleRouteFile = useCallback(async (file: File) => {
     setChangeRouteOpen(false);

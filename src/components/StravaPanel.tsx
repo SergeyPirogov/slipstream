@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useStore } from "../store";
-import { startOAuth, handleOAuthCallback } from "../strava/auth";
+import { startOAuth } from "../strava/auth";
 import {
   fetchMyRoutes,
   fetchRouteGpx,
@@ -40,13 +40,6 @@ export function StravaPanel({ onRouteLoaded, onLoadStart, onLoadError }: {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle OAuth callback on mount
-  useEffect(() => {
-    if (!window.location.search.includes("code=")) return;
-    handleOAuthCallback()
-      .then((token) => { if (token) setStravaToken(token); })
-      .catch(() => setError("Strava login failed"));
-  }, [setStravaToken]);
 
   const loadList = useCallback(async () => {
     if (!stravaToken) return;
