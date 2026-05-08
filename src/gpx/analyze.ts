@@ -46,6 +46,7 @@ export type Track = {
   description?: string;
   subSport?: string;
   elapsedSec?: number;
+  weightKg?: number;
   points: TrackPoint[];
   totals: Totals;
   climbs: Climb[];
@@ -311,8 +312,11 @@ export function analyze(parsed: ParsedGpx, filename: string, tzOffsetHours = 0):
 
   return {
     name: parsed.name,
-    rider: riderFromFilename(filename),
+    rider: parsed.athleteName ?? riderFromFilename(filename),
     description: parsed.description,
+    subSport: parsed.subSport,
+    elapsedSec: parsed.elapsedSec,
+    weightKg: parsed.weightKg,
     points,
     totals,
     climbs,

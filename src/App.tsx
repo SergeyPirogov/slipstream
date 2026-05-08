@@ -4,14 +4,12 @@ import { PlaybackControls } from "./components/PlaybackControls";
 import { OffsetControl } from "./components/OffsetControl";
 import { AlignmentModal } from "./components/AlignmentModal";
 import { SummaryCards } from "./components/Analytics/SummaryCards";
-import { LiveStatsPanel } from "./components/Analytics/LiveStatsPanel";
 import { SpeedChart } from "./components/Analytics/SpeedChart";
 import { PowerChart } from "./components/Analytics/PowerChart";
 import { ElevationChart } from "./components/Analytics/ElevationChart";
 import { HeartRateChart } from "./components/Analytics/HeartRateChart";
 import { SplitsTable } from "./components/Analytics/SplitsTable";
 import { RiderNameEditor } from "./components/RiderNameEditor";
-import { WeatherCard } from "./components/WeatherCard";
 import { useStore } from "./store";
 import { useState } from "react";
 
@@ -95,9 +93,7 @@ export default function App() {
               </div>
             </div>
             <aside className="side">
-              <WeatherCard />
               <SummaryCards />
-              <LiveStatsPanel />
               {settingsOpen && <OffsetControl />}
               <SplitsTable />
             </aside>

@@ -100,7 +100,7 @@ html, body, #root {
 .fit-control:hover { background: #f0f0f0; color: #000; }
 
 .zoom-indicator {
-  background: rgba(15, 17, 21, 0.85);
+  background: rgba(30, 36, 50, 0.62);
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   font-size: 11px;
@@ -831,24 +831,17 @@ html, body, #root {
   opacity: 0.7;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.summary-card {
-  background: var(--bg-elev-2);
-  border-radius: 6px;
-  padding: 10px;
-  border-left: 3px solid var(--border);
-}
-.summary-card.a { border-left-color: var(--a); }
-.summary-card.b { border-left-color: var(--b); }
-.summary-card .rider { font-size: 11px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .virtual-badge { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 3px; background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed44; text-transform: uppercase; }
-.summary-card .rows { display: grid; grid-template-columns: auto auto; gap: 3px 10px; font-size: 12px; }
-.summary-card .rows .k { color: var(--fg-dim); }
-.summary-card .rows .v { text-align: right; font-variant-numeric: tabular-nums; }
+
+.summary-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.summary-table thead th { font-size: 11px; font-weight: 600; padding: 0 10px 8px; text-align: right; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.summary-table thead th:first-child { text-align: left; width: 40%; }
+.summary-table thead th:nth-child(2) { color: var(--a); border-bottom: 2px solid var(--a); }
+.summary-table thead th:nth-child(3) { color: var(--b); border-bottom: 2px solid var(--b); }
+.summary-table tbody tr:hover td { background: var(--bg-elev-2); }
+.summary-table td { padding: 4px 10px; font-variant-numeric: tabular-nums; text-align: right; border-bottom: 1px solid var(--border); }
+.summary-table tbody tr:last-child td { border-bottom: none; }
+.summary-table td.summary-label { text-align: left; color: var(--fg-dim); white-space: nowrap; }
 
 .rider-name {
   cursor: pointer;

@@ -57,6 +57,13 @@ function segmentStats(track: Track, startM: number, endM: number): SegStats {
   };
 }
 
+type Row = { label: string; a: string; b: string; delta?: "pos" | "neg" | "neutral" };
+
+function deltaClass(a: number, b: number, higherIsBetter = true): "pos" | "neg" | "neutral" {
+  if (Math.abs(a - b) < 0.001) return "neutral";
+  return (a > b) === higherIsBetter ? "pos" : "neg";
+}
+
 export function SummaryCards() {
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
@@ -65,87 +72,140 @@ export function SummaryCards() {
 
   const statsA = segmentM ? segmentStats(trackA, segmentM.start, segmentM.end) : null;
   const statsB = segmentM ? segmentStats(trackB, segmentM.start, segmentM.end) : null;
+  const tA = statsA ?? trackA.totals;
+  const tB = statsB ?? trackB.totals;
+  const seg = !!segmentM;
 
-  const card = (slot: "a" | "b", track: NonNullable<typeof trackA>, seg: SegStats | null) => {
-    const totals = seg ?? track.totals;
-    const elapsedDiffSec = track.elapsedSec !== undefined
-      ? track.elapsedSec - track.totals.durationSec
-      : 0;
-    const showElapsed = !seg && track.elapsedSec !== undefined && elapsedDiffSec > 60;
+  const rows: Row[] = [];
 
-    return (
-      <div className={`summary-card ${slot}`}>
-        <div className="rider">
-          <RiderNameEditor slot={slot === "a" ? "A" : "B"} />
-          {track.subSport === "virtual_activity" && (
-            <span className="virtual-badge">Virtual</span>
-          )}
-        </div>
-        <div className="rows">
-          <div className="k">Distance</div>
-          <div className="v">{(totals.distanceM / 1000).toFixed(2)} km</div>
-          <div className="k">Moving time</div>
-          <div className="v">{formatDuration(totals.durationSec)}</div>
-          {showElapsed && (
-            <>
-              <div className="k">Elapsed time</div>
-              <div className="v">{formatDuration(track.elapsedSec!)}</div>
-            </>
-          )}
-          <div className="k">Avg speed</div>
-          <div className="v">{totals.avgSpeedKmh.toFixed(1)} km/h</div>
-          <div className="k">Max speed</div>
-          <div className="v">{totals.maxSpeedKmh.toFixed(1)} km/h</div>
-          <div className="k">Ascent</div>
-          <div className="v">{Math.round(totals.ascentM)} m</div>
-          {totals.avgHr !== undefined && (
-            <>
-              <div className="k">Avg HR</div>
-              <div className="v">{Math.round(totals.avgHr)} bpm</div>
-            </>
-          )}
-          {totals.avgCad !== undefined && (
-            <>
-              <div className="k">Avg cadence</div>
-              <div className="v">{Math.round(totals.avgCad)} rpm</div>
-            </>
-          )}
-          {totals.avgPower !== undefined && (
-            <>
-              <div className="k">Avg power</div>
-              <div className="v">{Math.round(totals.avgPower)} W</div>
-            </>
-          )}
-          {!seg && track.totals.normalizedPower !== undefined && (
-            <>
-              <div className="k">NP</div>
-              <div className="v">{Math.round(track.totals.normalizedPower)} W</div>
-            </>
-          )}
-          {totals.maxPower !== undefined && (
-            <>
-              <div className="k">Max power</div>
-              <div className="v">{Math.round(totals.maxPower)} W</div>
-            </>
-          )}
-          {!seg && (
-            <>
-              <div className="k">Climbs ≥500m</div>
-              <div className="v">{track.climbs.length}</div>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
+  rows.push({
+    label: "Distance",
+    a: `${(tA.distanceM / 1000).toFixed(2)} km`,
+    b: `${(tB.distanceM / 1000).toFixed(2)} km`,
+    delta: deltaClass(tA.distanceM, tB.distanceM),
+  });
+  rows.push({
+    label: "Moving time",
+    a: formatDuration(tA.durationSec),
+    b: formatDuration(tB.durationSec),
+    delta: deltaClass(tB.durationSec, tA.durationSec), // lower is better for A
+  });
+
+  const showElapsedA = !seg && trackA.elapsedSec !== undefined && trackA.elapsedSec - trackA.totals.durationSec > 60;
+  const showElapsedB = !seg && trackB.elapsedSec !== undefined && trackB.elapsedSec - trackB.totals.durationSec > 60;
+  if (showElapsedA || showElapsedB) {
+    rows.push({
+      label: "Elapsed time",
+      a: showElapsedA ? formatDuration(trackA.elapsedSec!) : "—",
+      b: showElapsedB ? formatDuration(trackB.elapsedSec!) : "—",
+    });
+  }
+
+  rows.push({
+    label: "Avg speed",
+    a: `${tA.avgSpeedKmh.toFixed(1)} km/h`,
+    b: `${tB.avgSpeedKmh.toFixed(1)} km/h`,
+    delta: deltaClass(tA.avgSpeedKmh, tB.avgSpeedKmh),
+  });
+  rows.push({
+    label: "Max speed",
+    a: `${tA.maxSpeedKmh.toFixed(1)} km/h`,
+    b: `${tB.maxSpeedKmh.toFixed(1)} km/h`,
+    delta: deltaClass(tA.maxSpeedKmh, tB.maxSpeedKmh),
+  });
+  rows.push({
+    label: "Ascent",
+    a: `${Math.round(tA.ascentM)} m`,
+    b: `${Math.round(tB.ascentM)} m`,
+    delta: deltaClass(tA.ascentM, tB.ascentM),
+  });
+
+  if (tA.avgHr !== undefined || tB.avgHr !== undefined) {
+    rows.push({
+      label: "Avg HR",
+      a: tA.avgHr !== undefined ? `${Math.round(tA.avgHr)} bpm` : "—",
+      b: tB.avgHr !== undefined ? `${Math.round(tB.avgHr)} bpm` : "—",
+    });
+  }
+  if (tA.avgCad !== undefined || tB.avgCad !== undefined) {
+    rows.push({
+      label: "Avg cadence",
+      a: tA.avgCad !== undefined ? `${Math.round(tA.avgCad)} rpm` : "—",
+      b: tB.avgCad !== undefined ? `${Math.round(tB.avgCad)} rpm` : "—",
+    });
+  }
+  if (tA.avgPower !== undefined || tB.avgPower !== undefined) {
+    rows.push({
+      label: "Avg power",
+      a: tA.avgPower !== undefined ? `${Math.round(tA.avgPower)} W` : "—",
+      b: tB.avgPower !== undefined ? `${Math.round(tB.avgPower)} W` : "—",
+      delta: tA.avgPower !== undefined && tB.avgPower !== undefined
+        ? deltaClass(tA.avgPower, tB.avgPower) : undefined,
+    });
+  }
+  if (!seg && (trackA.totals.normalizedPower !== undefined || trackB.totals.normalizedPower !== undefined)) {
+    rows.push({
+      label: "NP",
+      a: trackA.totals.normalizedPower !== undefined ? `${Math.round(trackA.totals.normalizedPower)} W` : "—",
+      b: trackB.totals.normalizedPower !== undefined ? `${Math.round(trackB.totals.normalizedPower)} W` : "—",
+      delta: trackA.totals.normalizedPower !== undefined && trackB.totals.normalizedPower !== undefined
+        ? deltaClass(trackA.totals.normalizedPower, trackB.totals.normalizedPower) : undefined,
+    });
+  }
+  if (tA.maxPower !== undefined || tB.maxPower !== undefined) {
+    rows.push({
+      label: "Max power",
+      a: tA.maxPower !== undefined ? `${Math.round(tA.maxPower)} W` : "—",
+      b: tB.maxPower !== undefined ? `${Math.round(tB.maxPower)} W` : "—",
+      delta: tA.maxPower !== undefined && tB.maxPower !== undefined
+        ? deltaClass(tA.maxPower, tB.maxPower) : undefined,
+    });
+  }
+  if (trackA.weightKg !== undefined || trackB.weightKg !== undefined) {
+    rows.push({
+      label: "Weight",
+      a: trackA.weightKg !== undefined ? `${trackA.weightKg} kg` : "—",
+      b: trackB.weightKg !== undefined ? `${trackB.weightKg} kg` : "—",
+    });
+  }
+  if (!seg) {
+    rows.push({
+      label: "Climbs ≥500m",
+      a: String(trackA.climbs.length),
+      b: String(trackB.climbs.length),
+    });
+  }
+
+  const COLOR_A = "var(--a)";
+  const COLOR_B = "var(--b)";
 
   return (
     <div className="panel">
       <h3>Summary{segmentM ? ` · ${(segmentM.start / 1000).toFixed(1)}–${(segmentM.end / 1000).toFixed(1)} km` : ""}</h3>
-      <div className="summary-grid">
-        {card("a", trackA, statsA)}
-        {card("b", trackB, statsB)}
-      </div>
+      <table className="summary-table">
+        <thead>
+          <tr>
+            <th />
+            <th style={{ color: COLOR_A }}>
+              <RiderNameEditor slot="A" />
+              {trackA.subSport === "virtual_activity" && <span className="virtual-badge" style={{ marginLeft: 4 }}>Virtual</span>}
+            </th>
+            <th style={{ color: COLOR_B }}>
+              <RiderNameEditor slot="B" />
+              {trackB.subSport === "virtual_activity" && <span className="virtual-badge" style={{ marginLeft: 4 }}>Virtual</span>}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <td className="summary-label">{r.label}</td>
+              <td className={r.delta === "pos" ? "delta-pos" : r.delta === "neg" ? "delta-neg" : ""}>{r.a}</td>
+              <td className={r.delta === "pos" ? "delta-neg" : r.delta === "neg" ? "delta-pos" : ""}>{r.b}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

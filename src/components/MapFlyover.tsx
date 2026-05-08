@@ -116,6 +116,21 @@ function degToCardinal(deg: number): string {
   return dirs[Math.round(deg / 45) % 8];
 }
 
+function weatherLabel(code: number): string {
+  if (code === 0) return "Clear";
+  if (code === 1) return "Mainly clear";
+  if (code === 2) return "Partly cloudy";
+  if (code === 3) return "Overcast";
+  if (code <= 49) return "Fog";
+  if (code <= 59) return "Drizzle";
+  if (code <= 67) return "Rain";
+  if (code <= 77) return "Snow";
+  if (code <= 82) return "Rain showers";
+  if (code <= 86) return "Snow showers";
+  if (code <= 99) return "Thunderstorm";
+  return "";
+}
+
 function fmtHMS(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -462,7 +477,7 @@ export function MapFlyover() {
       nextDist += SPACING_M;
       const icon = L.divIcon({
         className: "",
-        html: `<svg width="32" height="32" viewBox="-16 -16 32 32" style="display:block">
+        html: `<svg width="32" height="32" viewBox="-16 -16 32 32" style="display:block;opacity:0.5">
           <g transform="rotate(${rotateDeg})">
             <line x1="0" y1="11" x2="0" y2="-11" stroke="#1a1a1a" stroke-width="5" stroke-linecap="round"/>
             <line x1="0" y1="11" x2="0" y2="-11" stroke="#facc15" stroke-width="2.5" stroke-linecap="round"/>
@@ -549,6 +564,7 @@ export function MapFlyover() {
     const distLabel = `${distKm.toFixed(2)} km`;
     const timePart = Math.abs(timeDelta) < 0.5 ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
     const waitSuffix = (aFinished || bFinished) ? ` · ${aFinished ? trackA.rider : trackB.rider} finished` : "";
+
     const label = `${distLabel} · ${timePart}${waitSuffix}`;
 
     const tint: "pos" | "neg" | "neutral" = Math.abs(timeDelta) < 0.5 ? "neutral" : timeDelta > 0 ? "pos" : "neg";
@@ -624,23 +640,32 @@ export function MapFlyover() {
       {wind && (
         <div style={{
           position: "absolute", bottom: 32, left: 10, zIndex: 1000,
-          background: "rgba(15,18,26,0.82)", border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 8, padding: "6px 10px",
-          display: "flex", alignItems: "center", gap: 8,
+          background: "rgba(30,36,50,0.62)", border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: 8, padding: "7px 11px",
+          display: "flex", flexDirection: "column", gap: 5,
           fontSize: 11, color: "var(--fg)", backdropFilter: "blur(4px)",
-          pointerEvents: "none",
+          pointerEvents: "none", lineHeight: 1.4,
         }}>
-          <svg width="28" height="28" viewBox="-14 -14 28 28">
-            {/* Wind direction is "from" — rotate +180° so arrow points where wind is going */}
-            <g transform={`rotate(${wind.directionDeg + 180})`}>
-              <line x1="0" y1="10" x2="0" y2="-10" stroke="#facc15" strokeWidth="2" strokeLinecap="round" />
-              <polygon points="0,-13 4,-6 -4,-6" fill="#facc15" />
-            </g>
-          </svg>
-          <div style={{ lineHeight: 1.4 }}>
-            <div style={{ fontWeight: 600 }}>{Math.round(wind.speedKmh)} km/h</div>
-            <div style={{ color: "var(--fg-dim)" }}>{degToCardinal(wind.directionDeg)}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="24" height="24" viewBox="-12 -12 24 24" style={{ flexShrink: 0 }}>
+              <g transform={`rotate(${wind.directionDeg + 180})`}>
+                <line x1="0" y1="9" x2="0" y2="-9" stroke="#facc15" strokeWidth="2" strokeLinecap="round" />
+                <polygon points="0,-12 3.5,-5 -3.5,-5" fill="#facc15" />
+              </g>
+            </svg>
+            <div>
+              <span style={{ fontWeight: 600 }}>{Math.round(wind.speedKmh)} km/h</span>
+              <span style={{ color: "var(--fg-dim)", marginLeft: 5 }}>from {degToCardinal(wind.directionDeg)}</span>
+            </div>
           </div>
+          {wind.tempC !== undefined && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--fg-dim)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+              </svg>
+              <span><span style={{ fontWeight: 600 }}>{Math.round(wind.tempC)}°C</span>{wind.weatherCode !== undefined && <span style={{ color: "var(--fg-dim)", marginLeft: 5 }}>{weatherLabel(wind.weatherCode)}</span>}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

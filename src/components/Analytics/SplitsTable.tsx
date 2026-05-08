@@ -73,14 +73,18 @@ export function SplitsTable() {
       else if (offsetSec < 0) bDur = Math.max(0, bDurReal + offsetSec);
     }
 
+    const aPwr = avgPowerBetweenKm(trackA, prevKm, km);
+    const bPwr = avgPowerBetweenKm(trackB, prevKm, km);
     return {
       km,
       aDur,
       bDur,
       aSpd: aDurReal > 0 ? (segKm / aDurReal) * 3600 : 0,
       bSpd: bDurReal > 0 ? (segKm / bDurReal) * 3600 : 0,
-      aPwr: avgPowerBetweenKm(trackA, prevKm, km),
-      bPwr: avgPowerBetweenKm(trackB, prevKm, km),
+      aPwr,
+      bPwr,
+      aWkg: aPwr !== null && trackA.weightKg ? aPwr / trackA.weightKg : null,
+      bWkg: bPwr !== null && trackB.weightKg ? bPwr / trackB.weightKg : null,
       delta: bEndElapsed + offsetSec - aEndElapsed,
     };
   });
@@ -97,7 +101,6 @@ export function SplitsTable() {
             <th>{trackA.rider.slice(0, 10)}</th>
             <th>{trackB.rider.slice(0, 10)}</th>
             <th>Δ overall</th>
-            {hasPower && <th>Δ W</th>}
           </tr>
         </thead>
         <tbody>
@@ -108,32 +111,21 @@ export function SplitsTable() {
                 {fmtDur(r.aDur)}
                 <br />
                 <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.aSpd.toFixed(1)} km/h</span>
-                {hasPower && r.aPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.aPwr)} W</span></>}
+                {hasPower && r.aPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.aPwr)} W{r.aWkg !== null ? ` (${r.aWkg.toFixed(2)} w/kg)` : ""}</span></>}
               </td>
               <td>
                 {fmtDur(r.bDur)}
                 <br />
                 <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.bSpd.toFixed(1)} km/h</span>
-                {hasPower && r.bPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.bPwr)} W</span></>}
+                {hasPower && r.bPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.bPwr)} W{r.bWkg !== null ? ` (${r.bWkg.toFixed(2)} w/kg)` : ""}</span></>}
               </td>
               <td className={r.delta > 0 ? "delta-pos" : r.delta < 0 ? "delta-neg" : ""}>
                 {r.delta === 0 ? "—" : `${r.delta > 0 ? "+" : "−"}${fmtDur(Math.abs(r.delta))}`}
               </td>
-              {hasPower && (() => {
-                const diff = r.aPwr !== null && r.bPwr !== null ? Math.round(r.aPwr - r.bPwr) : null;
-                return (
-                  <td className={diff !== null && diff > 0 ? "delta-pos" : diff !== null && diff < 0 ? "delta-neg" : ""}>
-                    {diff === null ? "—" : diff === 0 ? "0 W" : `${diff > 0 ? "+" : ""}${diff} W`}
-                  </td>
-                );
-              })()}
             </tr>
           ))}
         </tbody>
       </table>
-      <div style={{ fontSize: 11, color: "var(--fg-dim)", marginTop: 6 }}>
-        Δ uses the shared clock (playback offset applied). Positive = {trackA.rider.slice(0, 10)} ahead.
-      </div>
     </div>
   );
 }

@@ -18,6 +18,7 @@ export type ParsedGpx = {
   subSport?: string;
   device?: string;
   athleteName?: string;
+  weightKg?: number;
   elapsedSec?: number;
   points: RawPoint[];
 };

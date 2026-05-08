@@ -72,6 +72,9 @@ export async function parseFitFile(file: File): Promise<ParsedGpx> {
   }
 
   const athleteName: string | undefined = data?.user_profile?.friendly_name || undefined;
+  const weightKg: number | undefined = typeof data?.user_profile?.weight === "number" && data.user_profile.weight > 0
+    ? data.user_profile.weight
+    : undefined;
 
   return {
     name,
@@ -79,6 +82,7 @@ export async function parseFitFile(file: File): Promise<ParsedGpx> {
     subSport,
     device,
     athleteName,
+    weightKg,
     elapsedSec,
     points,
   };

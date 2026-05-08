@@ -29,118 +29,92 @@ export function LiveStatsPanel() {
   const arrA = syncMode === "time" ? syncA.time : syncA.distance;
   const arrB = syncMode === "time" ? syncB.time : syncB.distance;
   const { aValue, bValue } = queryValues(
-    target,
-    syncMode,
-    arrA[arrA.length - 1],
-    arrB[arrB.length - 1],
-    offsetSec,
+    target, syncMode, arrA[arrA.length - 1], arrB[arrB.length - 1], offsetSec,
   );
   const posA = positionAtValue(trackA, arrA, aValue);
   const posB = positionAtValue(trackB, arrB, bValue);
 
-  // Δ time at same distance (ghost-race style, regardless of sync mode).
-  // Reference distance = the distance where both riders have data, i.e. min of their current distances.
-  // At that distance, compare each rider's shared-clock time.
-  //   A shared-clock time = A's elapsed when they reached that distance
-  //   B shared-clock time = B's elapsed when they reached that distance + offsetSec
-  // Positive → A reached first (A ahead).
-  const refDist = Math.max(
-    0,
-    Math.min(
-      posA.distFromStart,
-      posB.distFromStart,
-      syncA.distance[syncA.distance.length - 1],
-      syncB.distance[syncB.distance.length - 1],
-    ),
-  );
+  const refDist = Math.max(0, Math.min(
+    posA.distFromStart, posB.distFromStart,
+    syncA.distance[syncA.distance.length - 1],
+    syncB.distance[syncB.distance.length - 1],
+  ));
   const dPosA = positionAtValue(trackA, syncA.distance, refDist);
   const dPosB = positionAtValue(trackB, syncB.distance, refDist);
-  const aShared = dPosA.elapsedSec;
-  const bShared = dPosB.elapsedSec + offsetSec;
-  const timeDelta = bShared - aShared;
+  const timeDelta = (dPosB.elapsedSec + offsetSec) - dPosA.elapsedSec;
   const timeDeltaZero = Math.abs(timeDelta) < 0.5;
-
-  // Distance delta: A minus B (positive → A is further along the route).
   const distDelta = posA.distFromStart - posB.distFromStart;
 
-  const card = (
-    slot: "a" | "b",
-    pos: typeof posA,
-    track: NonNullable<typeof trackA>,
-  ) => (
-    <div className={`summary-card ${slot}`}>
-      <div className="rider">
-        <RiderNameEditor slot={slot === "a" ? "A" : "B"} />
-      </div>
-      <div className="rows">
-        <div className="k">Speed</div>
-        <div className="v">{pos.speedKmh.toFixed(1)} km/h</div>
-        <div className="k">Distance</div>
-        <div className="v">{(pos.distFromStart / 1000).toFixed(2)} km</div>
-        <div className="k">Elapsed</div>
-        <div className="v">{fmtHMS(pos.elapsedSec)}</div>
-        <div className="k">Elevation</div>
-        <div className="v">{Math.round(pos.ele)} m</div>
-        {pos.hr !== undefined && (
-          <>
-            <div className="k">HR</div>
-            <div className="v">{Math.round(pos.hr)} bpm</div>
-          </>
-        )}
-        {pos.cad !== undefined && (
-          <>
-            <div className="k">Cadence</div>
-            <div className="v">{Math.round(pos.cad)} rpm</div>
-          </>
-        )}
-        {pos.power !== undefined && (
-          <>
-            <div className="k">Power (3s)</div>
-            <div className="v">{Math.round(pos.power3s ?? pos.power)} W</div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  type Row = { label: string; a: string; b: string; deltaA?: "pos" | "neg" };
+
+  const rows: Row[] = [
+    { label: "Speed", a: `${posA.speedKmh.toFixed(1)} km/h`, b: `${posB.speedKmh.toFixed(1)} km/h`,
+      deltaA: posA.speedKmh > posB.speedKmh ? "pos" : posA.speedKmh < posB.speedKmh ? "neg" : undefined },
+    { label: "Distance", a: `${(posA.distFromStart / 1000).toFixed(2)} km`, b: `${(posB.distFromStart / 1000).toFixed(2)} km`,
+      deltaA: posA.distFromStart > posB.distFromStart ? "pos" : posA.distFromStart < posB.distFromStart ? "neg" : undefined },
+    { label: "Elapsed", a: fmtHMS(posA.elapsedSec), b: fmtHMS(posB.elapsedSec) },
+    { label: "Elevation", a: `${Math.round(posA.ele)} m`, b: `${Math.round(posB.ele)} m` },
+  ];
+
+  if (posA.hr !== undefined || posB.hr !== undefined) {
+    rows.push({ label: "HR",
+      a: posA.hr !== undefined ? `${Math.round(posA.hr)} bpm` : "—",
+      b: posB.hr !== undefined ? `${Math.round(posB.hr)} bpm` : "—",
+    });
+  }
+  if (posA.cad !== undefined || posB.cad !== undefined) {
+    rows.push({ label: "Cadence",
+      a: posA.cad !== undefined ? `${Math.round(posA.cad)} rpm` : "—",
+      b: posB.cad !== undefined ? `${Math.round(posB.cad)} rpm` : "—",
+    });
+  }
+  if (posA.power !== undefined || posB.power !== undefined) {
+    const aW = posA.power !== undefined ? Math.round(posA.power3s ?? posA.power) : null;
+    const bW = posB.power !== undefined ? Math.round(posB.power3s ?? posB.power) : null;
+    rows.push({ label: "Power (3s)",
+      a: aW !== null ? `${aW} W` : "—",
+      b: bW !== null ? `${bW} W` : "—",
+      deltaA: aW !== null && bW !== null ? (aW > bW ? "pos" : aW < bW ? "neg" : undefined) : undefined,
+    });
+  }
 
   return (
     <div className="panel">
       <h3><span className="rec-dot" aria-hidden="true" />Live</h3>
-      <div className="summary-grid">
-        {card("a", posA, trackA)}
-        {card("b", posB, trackB)}
-      </div>
+      <table className="summary-table">
+        <thead>
+          <tr>
+            <th />
+            <th style={{ color: "var(--a)" }}><RiderNameEditor slot="A" /></th>
+            <th style={{ color: "var(--b)" }}><RiderNameEditor slot="B" /></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <td className="summary-label">{r.label}</td>
+              <td className={r.deltaA === "pos" ? "delta-pos" : r.deltaA === "neg" ? "delta-neg" : ""}>{r.a}</td>
+              <td className={r.deltaA === "pos" ? "delta-neg" : r.deltaA === "neg" ? "delta-pos" : ""}>{r.b}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <div className="live-delta">
         <div>
           <span className="k">Δ distance</span>
           <span className={`v ${distDelta > 0 ? "delta-pos" : distDelta < 0 ? "delta-neg" : ""}`}>
-            {distDelta === 0
-              ? "—"
-              : `${distDelta > 0 ? "+" : "−"}${(Math.abs(distDelta) / 1000).toFixed(2)} km`}
+            {distDelta === 0 ? "—" : `${distDelta > 0 ? "+" : "−"}${(Math.abs(distDelta) / 1000).toFixed(2)} km`}
           </span>
         </div>
         <div>
           <span className="k">Δ time</span>
           <span className={`v ${timeDeltaZero ? "" : timeDelta > 0 ? "delta-pos" : "delta-neg"}`}>
-            {timeDeltaZero
-              ? "0s"
-              : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`}
+            {timeDeltaZero ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`}
           </span>
         </div>
       </div>
-      <div
-        className="live-ahead"
-        style={{
-          color: timeDeltaZero
-            ? "var(--fg-dim)"
-            : timeDelta > 0
-              ? "var(--a)"
-              : "var(--b)",
-        }}
-      >
-        {timeDeltaZero
-          ? "Even"
-          : `${timeDelta > 0 ? trackA.rider : trackB.rider} is ahead`}
+      <div className="live-ahead" style={{ color: timeDeltaZero ? "var(--fg-dim)" : timeDelta > 0 ? "var(--a)" : "var(--b)" }}>
+        {timeDeltaZero ? "Even" : `${timeDelta > 0 ? trackA.rider : trackB.rider} is ahead`}
       </div>
     </div>
   );
