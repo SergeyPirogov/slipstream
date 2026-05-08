@@ -21,8 +21,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!clientId || !clientSecret)
     return res.status(500).json({ error: "Strava credentials not configured" });
 
-  const body: Record<string, string> = {
-    client_id: clientId,
+  const body: Record<string, string | number> = {
+    client_id: Number(clientId),
     client_secret: clientSecret,
     grant_type,
   };
