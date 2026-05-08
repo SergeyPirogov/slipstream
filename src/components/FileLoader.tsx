@@ -3,22 +3,27 @@ import { parseGpxFile } from "../gpx/parse";
 import { parseFitFile } from "../gpx/parseFit";
 import { useStore, type Slot } from "../store";
 import { RiderNameEditor } from "./RiderNameEditor";
+import { StravaPanel } from "./StravaPanel";
 
 function DropZone({ slot, color }: { slot: Slot; color: "a" | "b" }) {
   const track = useStore((s) => (slot === "A" ? s.trackA : s.trackB));
   const loadTrack = useStore((s) => s.loadTrack);
   const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
       setError(null);
+      setLoading(true);
       try {
         const isFit = /\.fit$/i.test(file.name);
         const parsed = isFit ? await parseFitFile(file) : await parseGpxFile(file);
         loadTrack(slot, parsed, file.name);
       } catch (e: any) {
         setError(e?.message ?? "Failed to parse file");
+      } finally {
+        setLoading(false);
       }
     },
     [loadTrack, slot],
@@ -58,7 +63,14 @@ function DropZone({ slot, color }: { slot: Slot; color: "a" | "b" }) {
         <span className="dot" />
         <span className="drop-title">Rider {slot}</span>
       </div>
-      {track ? (
+      {loading ? (
+        <div className="drop-loading">
+          <svg className="drop-spinner" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 2a10 10 0 0 1 10 10" />
+          </svg>
+          <span>Parsing…</span>
+        </div>
+      ) : track ? (
         <>
           <p className="drop-name" onClick={(e) => e.preventDefault()}>
             <RiderNameEditor slot={slot} />
@@ -89,21 +101,28 @@ function DropZone({ slot, color }: { slot: Slot; color: "a" | "b" }) {
 function PlanDropZone() {
   const route = useStore((s) => s.plan.route);
   const loadRoute = useStore((s) => s.loadRoute);
+  const setPlanRouteLoading = useStore((s) => s.setPlanRouteLoading);
   const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
       setError(null);
+      setLoading(true);
+      setPlanRouteLoading(true);
       try {
         const isFit = /\.fit$/i.test(file.name);
         const parsed = isFit ? await parseFitFile(file) : await parseGpxFile(file);
         loadRoute(parsed, file.name);
       } catch (e: any) {
         setError(e?.message ?? "Failed to parse file");
+        setPlanRouteLoading(false);
+      } finally {
+        setLoading(false);
       }
     },
-    [loadRoute],
+    [loadRoute, setPlanRouteLoading],
   );
 
   const onDrop = useCallback(
@@ -136,7 +155,14 @@ function PlanDropZone() {
         <span className="dot dot-plan" />
         <span className="drop-title">Route file</span>
       </div>
-      {route ? (
+      {loading ? (
+        <div className="drop-loading">
+          <svg className="drop-spinner" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 2a10 10 0 0 1 10 10" />
+          </svg>
+          <span>Parsing…</span>
+        </div>
+      ) : route ? (
         <>
           <p className="drop-name">{route.name || "Route"}</p>
           <p className="drop-stat">
@@ -444,18 +470,25 @@ export function FileLoader() {
   return (
     <div className="landing">
       {/* Mode switcher */}
-      <div className="mode-switcher">
-        <button
-          className={`mode-btn ${appMode === "compare" ? "active" : ""}`}
-          onClick={() => setAppMode("compare")}
-        >
-          Compare rides
-        </button>
+      <div className="landing-mode-switcher">
         <button
           className={`mode-btn ${appMode === "plan" ? "active" : ""}`}
           onClick={() => setAppMode("plan")}
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/>
+            <path d="M5 17C5 10 10 7 19 7"/>
+          </svg>
           Plan a route
+        </button>
+        <button
+          className={`mode-btn ${appMode === "compare" ? "active" : ""}`}
+          onClick={() => setAppMode("compare")}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Compare rides
         </button>
       </div>
 
@@ -506,6 +539,10 @@ export function FileLoader() {
             <div className="hero-note">
               Works with GPX routes from Komoot, Strava, RideWithGPS, Garmin Connect, and FIT course files.
             </div>
+            <div className="plan-import-divider">
+              <span>or import from</span>
+            </div>
+            <StravaPanel />
           </div>
           <div className="hero-art">
             <PlanIllustration />

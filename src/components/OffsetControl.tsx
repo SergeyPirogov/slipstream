@@ -158,7 +158,7 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
               )}
             </div>
           )}
-          {(commonStart.distA > 10 || commonStart.distB > 10 || (commonEnd && (commonEnd.tailA > 10 || commonEnd.tailB > 10))) && (
+          {(commonStart.distA > 10 || commonStart.distB > 10 || (commonEnd && (commonEnd.tailA > 10 || commonEnd.tailB > 10))) ? (
             <button
               className="trim-head-btn"
               style={{ marginTop: 8 }}
@@ -167,6 +167,14 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
               title={tzNotFixed ? "Fix the timezone mismatch first" : "Trim each track to its common start and end points"}
             >
               Trim to common segment{onContinue ? " & continue" : ""}
+            </button>
+          ) : onContinue && (
+            <button
+              className="trim-head-btn"
+              style={{ marginTop: 8 }}
+              onClick={onContinue}
+            >
+              Continue
             </button>
           )}
         </>

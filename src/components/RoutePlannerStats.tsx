@@ -122,9 +122,16 @@ export function RoutePlannerStats() {
           ))}
         </div>
 
-        {/* Speed */}
-        <div className="dep-section-label" style={{ marginTop: 12 }}>Avg speed</div>
-        <div className="dep-speed-row">
+      </div>
+
+      {/* Weather forecast */}
+      <WeatherSummaryPanel />
+
+      {/* Route summary */}
+      <div className="panel">
+        <h3>Route</h3>
+        <div className="dep-speed-row" style={{ marginBottom: 10 }}>
+          <span className="summary-label" style={{ flexShrink: 0 }}>Avg speed</span>
           <input
             type="range"
             min={10}
@@ -147,14 +154,6 @@ export function RoutePlannerStats() {
             <span className="dep-speed-unit">km/h</span>
           </div>
         </div>
-      </div>
-
-      {/* Weather forecast */}
-      <WeatherSummaryPanel />
-
-      {/* Route summary */}
-      <div className="panel">
-        <h3>Route</h3>
         <table className="summary-table">
           <tbody>
             <tr><td className="summary-label">Distance</td><td>{fmtDist(totals.distanceM)}</td></tr>

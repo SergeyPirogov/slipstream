@@ -96,6 +96,8 @@ function tempLabelIcon(tempC: number): L.DivIcon {
 
 export function RoutePlannerMap() {
   const plan = useStore((s) => s.plan);
+  const windLoading = useStore((s) => s.plan.windLoading);
+  const routeLoading = useStore((s) => s.plan.routeLoading);
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
@@ -129,6 +131,9 @@ export function RoutePlannerMap() {
     const layer = routeLayerRef.current;
     if (!map || !layer) return;
 
+    // Don't draw while loading — avoids grey→colored flash
+    if (windLoading || routeLoading) return;
+
     layer.clearLayers();
     arrowsRef.current.forEach((m) => m.remove());
     arrowsRef.current = [];
@@ -137,6 +142,12 @@ export function RoutePlannerMap() {
 
     const { route, windAnalysis } = plan;
     if (!route || route.points.length < 2) return;
+
+    // Fade in the overlay pane after drawing
+    const overlayPane = map.getPane("overlayPane");
+    const markerPane = map.getPane("markerPane");
+    if (overlayPane) { overlayPane.style.transition = "none"; overlayPane.style.opacity = "0"; }
+    if (markerPane) { markerPane.style.transition = "none"; markerPane.style.opacity = "0"; }
 
     const pts = route.points;
 
@@ -197,7 +208,15 @@ export function RoutePlannerMap() {
 
     const latlngs = pts.map((p) => [p.lat, p.lon] as [number, number]);
     map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
-  }, [plan.route, plan.windAnalysis]);
+
+    // Fade in after fitBounds settles
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (overlayPane) { overlayPane.style.transition = "opacity 0.6s ease"; overlayPane.style.opacity = "1"; }
+        if (markerPane) { markerPane.style.transition = "opacity 0.6s ease"; markerPane.style.opacity = "1"; }
+      });
+    });
+  }, [plan.route, plan.windAnalysis, windLoading, routeLoading]);
 
   // Elevation-chart hover → map pointer
   useEffect(() => {
@@ -254,8 +273,13 @@ export function RoutePlannerMap() {
           <span className="ml-head">▬ Headwind</span>
         </div>
       )}
-      {plan.windLoading && (
-        <div className="plan-loading">Fetching wind forecast…</div>
+      {(routeLoading || plan.windLoading) && (
+        <div className="map-loading-overlay">
+          <svg className="map-loading-spinner" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 2a10 10 0 0 1 10 10" />
+          </svg>
+          <span>{routeLoading ? "Loading route…" : "Fetching wind…"}</span>
+        </div>
       )}
     </div>
   );

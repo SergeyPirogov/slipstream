@@ -1,7 +1,6 @@
 import { FileLoader } from "./components/FileLoader";
 import { MapFlyover } from "./components/MapFlyover";
 import { PlaybackControls } from "./components/PlaybackControls";
-import { OffsetControl } from "./components/OffsetControl";
 import { AlignmentModal } from "./components/AlignmentModal";
 import { SummaryCards } from "./components/Analytics/SummaryCards";
 import { SpeedChart } from "./components/Analytics/SpeedChart";
@@ -13,8 +12,12 @@ import { RiderNameEditor } from "./components/RiderNameEditor";
 import { RoutePlannerMap } from "./components/RoutePlannerView";
 import { RoutePlannerStats } from "./components/RoutePlannerStats";
 import { RouteElevationChart } from "./components/RouteElevationChart";
+import { StravaPanel } from "./components/StravaPanel";
 import { useStore } from "./store";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { parseGpxFile } from "./gpx/parse";
+import { parseFitFile } from "./gpx/parseFit";
+import { startOAuth } from "./strava/auth";
 
 export default function App() {
   const appMode = useStore((s) => s.appMode);
@@ -24,16 +27,69 @@ export default function App() {
   const planRoute = useStore((s) => s.plan.route);
   const clearTrack = useStore((s) => s.clearTrack);
   const clearRoute = useStore((s) => s.clearRoute);
+  const loadRoute = useStore((s) => s.loadRoute);
+  const loadTrack = useStore((s) => s.loadTrack);
+  const setPlanRouteLoading = useStore((s) => s.setPlanRouteLoading);
   const bothLoaded = !!trackA && !!trackB;
   const planLoaded = appMode === "plan" && !!planRoute;
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const reopenAlignment = useStore((s) => s.reopenAlignment);
+  const [changeRouteOpen, setChangeRouteOpen] = useState(false);
+  const [changeRidesOpen, setChangeRidesOpen] = useState(false);
+  const routeLoading = useStore((s) => s.plan.routeLoading);
+  const [stravaModalOpen, setStravaModalOpen] = useState(false);
+  const changeRouteRef = useRef<HTMLDivElement>(null);
+  const changeRidesRef = useRef<HTMLDivElement>(null);
+
+  const stravaToken = useStore((s) => s.stravaToken);
+
+  const handleRouteFile = useCallback(async (file: File) => {
+    setChangeRouteOpen(false);
+    setPlanRouteLoading(true);
+    try {
+      const isFit = /\.fit$/i.test(file.name);
+      const parsed = isFit ? await parseFitFile(file) : await parseGpxFile(file);
+      loadRoute(parsed, file.name);
+    } catch {
+      setPlanRouteLoading(false);
+    }
+  }, [loadRoute, setPlanRouteLoading]);
+
+  useEffect(() => {
+    if (!changeRouteOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (changeRouteRef.current && !changeRouteRef.current.contains(e.target as Node)) {
+        setChangeRouteOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [changeRouteOpen]);
+
+  useEffect(() => {
+    if (!changeRidesOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (changeRidesRef.current && !changeRidesRef.current.contains(e.target as Node)) {
+        setChangeRidesOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [changeRidesOpen]);
+
+  const handleRiderFile = useCallback(async (slot: "A" | "B", file: File) => {
+    setChangeRidesOpen(false);
+    try {
+      const isFit = /\.fit$/i.test(file.name);
+      const parsed = isFit ? await parseFitFile(file) : await parseGpxFile(file);
+      loadTrack(slot, parsed, file.name);
+    } catch {}
+  }, [loadTrack]);
 
   const showLanding = appMode === "compare" ? !bothLoaded : !planLoaded;
 
   const resetComparison = () => {
     clearTrack("A");
     clearTrack("B");
-    setSettingsOpen(false);
   };
 
   const resetPlan = () => {
@@ -43,7 +99,164 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Slipstream</h1>
+        <h1
+          className={showLanding ? undefined : "app-logo"}
+          onClick={showLanding ? undefined : () => appMode === "plan" ? resetPlan() : resetComparison()}
+          title={showLanding ? undefined : "Back to start"}
+        >Slipstream</h1>
+        {!showLanding && <div className="mode-switcher">
+          <button
+            className={`mode-pill${appMode === "plan" ? " active" : ""}`}
+            onClick={() => appMode === "plan" ? resetPlan() : setAppMode("plan")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/>
+              <path d="M5 17C5 10 10 7 19 7"/>
+            </svg>
+            Plan
+          </button>
+          <button
+            className={`mode-pill${appMode === "compare" ? " active" : ""}`}
+            onClick={() => appMode === "compare" ? resetComparison() : setAppMode("compare")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Compare
+          </button>
+        </div>}
+
+        <div className="header-right">
+        {bothLoaded && appMode === "compare" && (
+          <div className="header-route-pill" ref={changeRidesRef}>
+            <div className="compare-pill-riders">
+              <span className="dot dot-a" />
+              <RiderNameEditor slot="A" />
+              <span className="compare-pill-vs">vs</span>
+              <span className="dot dot-b" />
+              <RiderNameEditor slot="B" />
+            </div>
+            <button
+              className={`header-route-change${changeRidesOpen ? " active" : ""}`}
+              onClick={() => setChangeRidesOpen((v) => !v)}
+            >
+              ↺ Change
+            </button>
+            <button
+              className="header-icon-btn"
+              onClick={reopenAlignment}
+              title="Time alignment settings"
+              aria-label="Settings"
+              style={{ marginLeft: 2 }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+            {changeRidesOpen && (
+              <div className="change-route-popover">
+                <div className="crp-title">Change rides</div>
+                <label className="crp-option" htmlFor="crp-rider-a">
+                  <span className="dot dot-a" />
+                  Replace {trackA!.rider || "Rider A"}
+                  <input id="crp-rider-a" type="file" accept=".gpx,.fit" style={{ display: "none" }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("A", f); }} />
+                </label>
+                <label className="crp-option" htmlFor="crp-rider-b">
+                  <span className="dot dot-b" />
+                  Replace {trackB!.rider || "Rider B"}
+                  <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
+                </label>
+                <div className="crp-divider" />
+                <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); resetComparison(); }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                  Clear both rides
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(planLoaded || routeLoading) && (
+          <div className="header-route-pill" ref={changeRouteRef}>
+            {routeLoading ? (
+              <svg className="crp-spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 2a10 10 0 0 1 10 10" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/>
+                <path d="M5 17C5 10 10 7 19 7"/>
+              </svg>
+            )}
+            <span className="header-route-name">
+              {routeLoading ? "Loading…" : (planRoute!.name || "Route")}
+            </span>
+            {!routeLoading && (
+              <>
+                <span className="header-route-sep">·</span>
+                <span className="header-route-stat">
+                  {(planRoute!.totals.distanceM / 1000).toFixed(1)} km
+                </span>
+              </>
+            )}
+            <button
+              className={`header-route-change${changeRouteOpen ? " active" : ""}`}
+              onClick={() => setChangeRouteOpen((v) => !v)}
+              disabled={routeLoading}
+            >
+              ↺ Change route
+            </button>
+            {changeRouteOpen && (
+              <div className="change-route-popover">
+                <div className="crp-title">Load a different route</div>
+                <label className="crp-option" htmlFor="crp-file-input">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  Upload GPX / FIT file
+                  <input
+                    id="crp-file-input"
+                    type="file"
+                    accept=".gpx,.fit"
+                    style={{ display: "none" }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRouteFile(f); }}
+                  />
+                </label>
+                {stravaToken ? (
+                  <button className="crp-option" onClick={() => { setChangeRouteOpen(false); setStravaModalOpen(true); }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                      <line x1="4" y1="22" x2="4" y2="15"/>
+                    </svg>
+                    Browse Strava routes
+                  </button>
+                ) : (
+                  <button className="crp-option crp-strava" onClick={() => { setChangeRouteOpen(false); startOAuth(); }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                      <line x1="4" y1="22" x2="4" y2="15"/>
+                    </svg>
+                    Connect Strava
+                  </button>
+                )}
+                <div className="crp-divider"/>
+                <button className="crp-option crp-danger" onClick={() => { setChangeRouteOpen(false); resetPlan(); }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                  Clear route
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <a
           className="patreon-btn"
           href="https://patreon.com/automation_remarks"
@@ -57,74 +270,7 @@ export default function App() {
           </svg>
           <span>Support</span>
         </a>
-
-        {/* Mode switcher in header (only when nothing loaded) */}
-        {showLanding && (
-          <div className="header-mode-switcher">
-            <button
-              className={`mode-btn mode-btn--sm ${appMode === "compare" ? "active" : ""}`}
-              onClick={() => setAppMode("compare")}
-            >
-              Compare
-            </button>
-            <button
-              className={`mode-btn mode-btn--sm ${appMode === "plan" ? "active" : ""}`}
-              onClick={() => setAppMode("plan")}
-            >
-              Plan
-            </button>
-          </div>
-        )}
-
-        {bothLoaded && appMode === "compare" && (
-          <>
-            <div className="legend" style={{ marginLeft: "auto" }}>
-              <span><span className="dot a" /><RiderNameEditor slot="A" /></span>
-              <span><span className="dot b" /><RiderNameEditor slot="B" /></span>
-            </div>
-            <button
-              className="header-icon-btn"
-              onClick={resetComparison}
-              title="New comparison (clear both files)"
-              aria-label="New comparison"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 1 1-3-6.7" />
-                <path d="M21 4v5h-5" />
-              </svg>
-            </button>
-            <button
-              className="header-icon-btn"
-              onClick={() => setSettingsOpen((v) => !v)}
-              title="Time alignment settings"
-              aria-label="Settings"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </button>
-          </>
-        )}
-
-        {planLoaded && (
-          <>
-            <div className="legend" style={{ marginLeft: "auto" }}>
-              <span style={{ color: "var(--fg-dim)", fontSize: 13 }}>{planRoute!.name || "Route"}</span>
-            </div>
-            <button
-              className="header-icon-btn"
-              onClick={resetPlan}
-              title="Load a different route"
-              aria-label="New route"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 1 1-3-6.7" />
-                <path d="M21 4v5h-5" />
-              </svg>
-            </button>
-          </>
-        )}
+        </div>
       </header>
 
       {showLanding ? (
@@ -158,12 +304,28 @@ export default function App() {
             </div>
             <aside className="side">
               <SummaryCards />
-              {settingsOpen && <OffsetControl />}
               <SplitsTable />
             </aside>
           </div>
           <AlignmentModal />
         </>
+      )}
+
+      {stravaModalOpen && (
+        <div className="strava-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setStravaModalOpen(false); }}>
+          <div className="strava-modal">
+            <button className="strava-modal-close" onClick={() => setStravaModalOpen(false)} aria-label="Close">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <StravaPanel
+              onLoadStart={() => setPlanRouteLoading(true)}
+              onRouteLoaded={() => setStravaModalOpen(false)}
+              onLoadError={() => setPlanRouteLoading(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

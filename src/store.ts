@@ -6,6 +6,8 @@ import type { SyncMode } from "./gpx/align";
 import { maxValueForMode, startOffsetSec, findCommonStart, findCommonEnd } from "./gpx/align";
 import type { HourlyWind, RouteWindAnalysis, RideWeatherSummary } from "./gpx/routeWind";
 import { analyzeRouteWind, buildRideWeatherSummary, fetchHourlyWind } from "./gpx/routeWind";
+import type { StravaToken } from "./strava/auth";
+import { getStoredToken, clearToken as clearStravaToken } from "./strava/auth";
 
 export type AppMode = "compare" | "plan";
 
@@ -26,6 +28,8 @@ export type PlanState = {
   windAnalysis: RouteWindAnalysis | null;
   weatherSummary: RideWeatherSummary | null;
   windLoading: boolean;
+  /** True while file is being parsed / Strava route is being fetched */
+  routeLoading: boolean;
   /** km from start currently hovered on elevation chart, null when not hovering */
   hoverKm: number | null;
 };
@@ -33,10 +37,14 @@ export type PlanState = {
 type State = {
   appMode: AppMode;
   plan: PlanState;
+  stravaToken: StravaToken | null;
 
   setAppMode: (m: AppMode) => void;
+  setStravaToken: (token: StravaToken | null) => void;
+  disconnectStrava: () => void;
   loadRoute: (parsed: ParsedGpx, filename: string) => void;
   clearRoute: () => void;
+  setPlanRouteLoading: (v: boolean) => void;
   setPlanDepartureDate: (d: string) => void;
   setPlanDepartureHour: (h: number) => void;
   setPlanAvgSpeed: (s: number) => void;
@@ -74,6 +82,7 @@ type State = {
   trimHeadStart: () => void;
   trimToCommonStart: () => void;
   confirmAlignment: () => void;
+  reopenAlignment: () => void;
   setSegmentM: (start: number, end: number) => void;
   clearSegmentM: () => void;
   setCommonStartScanKm: (km: number) => void;
@@ -92,7 +101,15 @@ function maybeAutofillOffset(
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export const useStore = create<State>((set, get) => ({
-  appMode: "compare",
+  appMode: "plan",
+  stravaToken: getStoredToken(),
+
+  setStravaToken: (token) => set({ stravaToken: token }),
+  disconnectStrava: () => {
+    clearStravaToken();
+    set({ stravaToken: null });
+  },
+
   plan: {
     route: null,
     rawRoute: null,
@@ -103,10 +120,13 @@ export const useStore = create<State>((set, get) => ({
     windAnalysis: null,
     weatherSummary: null,
     windLoading: false,
+    routeLoading: false,
     hoverKm: null,
   },
 
   setAppMode: (m) => set({ appMode: m }),
+
+  setPlanRouteLoading: (v) => set((s) => ({ plan: { ...s.plan, routeLoading: v } })),
 
   loadRoute: (parsed, filename) => {
     const track = analyze(parsed, filename, 0);
@@ -118,6 +138,7 @@ export const useStore = create<State>((set, get) => ({
         hourlyWind: null,
         windAnalysis: null,
         weatherSummary: null,
+        routeLoading: false,
       },
     }));
     setTimeout(() => get().fetchPlanWind(), 0);
@@ -160,7 +181,7 @@ export const useStore = create<State>((set, get) => ({
   fetchPlanWind: async () => {
     const { plan } = get();
     if (!plan.route || plan.route.points.length === 0) return;
-    set((s) => ({ plan: { ...s.plan, windLoading: true } }));
+    set((s) => ({ plan: { ...s.plan, windLoading: true, routeLoading: false } }));
     try {
       const mid = plan.route.points[Math.floor(plan.route.points.length / 2)];
       const hw = await fetchHourlyWind(mid.lat, mid.lon, plan.departureDate);
@@ -325,6 +346,7 @@ export const useStore = create<State>((set, get) => ({
     }),
 
   confirmAlignment: () => set({ alignmentConfirmed: true }),
+  reopenAlignment: () => set({ alignmentConfirmed: false }),
   setSegmentM: (start, end) => set({ segmentM: { start, end }, progress: 0, playing: false }),
   clearSegmentM: () => set({ segmentM: null, progress: 0, playing: false }),
   setCommonStartScanKm: (km) => set({ commonStartScanKm: Math.max(1, Math.round(km)) }),
