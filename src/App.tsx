@@ -140,10 +140,10 @@ export default function App() {
             <div className="header-route-pill" ref={changeRidesRef}>
               <div className="compare-pill-riders">
                 <span className="dot dot-a" />
-                <RiderNameEditor slot="A" />
+                <RiderNameEditor slot="A" readonly />
                 <span className="compare-pill-vs">vs</span>
                 <span className="dot dot-b" />
-                <RiderNameEditor slot="B" />
+                <RiderNameEditor slot="B" readonly />
               </div>
               <button
                 className={`header-route-change${changeRidesOpen ? " active" : ""}`}

@@ -4,9 +4,11 @@ import { useStore, type Slot } from "../store";
 export function RiderNameEditor({
   slot,
   className,
+  readonly,
 }: {
   slot: Slot;
   className?: string;
+  readonly?: boolean;
 }) {
   const track = useStore((s) => (slot === "A" ? s.trackA : s.trackB));
   const setRiderName = useStore((s) => s.setRiderName);
@@ -22,6 +24,10 @@ export function RiderNameEditor({
   }, [editing]);
 
   if (!track) return null;
+
+  if (readonly) {
+    return <span className={`rider-name ${className ?? ""}`}>{track.rider}</span>;
+  }
 
   const commit = () => {
     const v = draft.trim();
