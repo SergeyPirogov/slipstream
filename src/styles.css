@@ -511,19 +511,20 @@ html, body, #root {
 }
 .trim-head-btn {
   width: 100%;
-  background: var(--accent);
-  color: #0a0f0a;
-  border: 1px solid var(--accent);
+  background: rgba(34, 197, 94, 0.07);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
   padding: 9px 12px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  transition: opacity 0.12s;
+  transition: background 0.12s, border-color 0.12s;
   font-variant-numeric: tabular-nums;
 }
 .trim-head-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.45);
 }
 .trim-head-btn:disabled {
   opacity: 0.45;
@@ -960,3 +961,10 @@ select {
   padding: 5px 8px;
   font-size: 13px;
 }
+
+/* Weather card */
+.weather-card .weather-grid { display: flex; flex-direction: column; gap: 8px; }
+.weather-card .weather-row { display: flex; align-items: center; gap: 10px; }
+.weather-card .weather-detail { display: flex; flex-direction: column; }
+.weather-card .weather-value { font-size: 13px; font-weight: 600; }
+.weather-card .weather-label { font-size: 10px; color: var(--fg-dim); margin-top: 1px; }

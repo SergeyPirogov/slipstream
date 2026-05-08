@@ -111,6 +111,11 @@ function positionTetheredLabel(
   leaderEl.setAttribute("y2", String(ly));
 }
 
+function degToCardinal(deg: number): string {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
 function fmtHMS(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -136,6 +141,7 @@ export function MapFlyover() {
   const gapOverlayRef = useRef<HTMLDivElement | null>(null);
   const gapLabelTextRef = useRef<string>("");
   const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
+  const windArrowsRef = useRef<L.Marker[]>([]);
 
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
@@ -144,6 +150,7 @@ export function MapFlyover() {
   const playing = useStore((s) => s.playing);
   const offsetSec = useStore((s) => s.offsetSec);
   const segmentM = useStore((s) => s.segmentM);
+  const wind = useStore((s) => s.wind);
   const maxValue = useMaxValue();
 
   const syncA = useMemo(() => (trackA ? buildSyncArrays(trackA) : null), [trackA]);
@@ -156,7 +163,7 @@ export function MapFlyover() {
       center: [49.8, 24],
       zoom: 10,
       zoomControl: true,
-      preferCanvas: true,
+      preferCanvas: false,
       scrollWheelZoom: true,
       wheelPxPerZoomLevel: 100,
       zoomSnap: 0.25,
@@ -328,6 +335,8 @@ export function MapFlyover() {
 
     return () => {
       window.removeEventListener("keydown", onKey);
+      windArrowsRef.current.forEach((m) => m.remove());
+      windArrowsRef.current = [];
       map.remove();
       mapRef.current = null;
       lineARef.current = null;
@@ -436,6 +445,39 @@ export function MapFlyover() {
     draw(trackA, segARef);
     draw(trackB, segBRef);
   }, [segmentM, trackA, trackB]);
+
+  // Wind arrows along the route — one every SPACING_M metres.
+  useEffect(() => {
+    const map = mapRef.current;
+    windArrowsRef.current.forEach((m) => m.remove());
+    windArrowsRef.current = [];
+    if (!map || !wind || !trackA) return;
+
+    const SPACING_M = 5000;
+    const rotateDeg = wind.directionDeg + 180;
+    const pts = trackA.points;
+    let nextDist = SPACING_M;
+    for (const p of pts) {
+      if (p.distFromStart < nextDist) continue;
+      nextDist += SPACING_M;
+      const icon = L.divIcon({
+        className: "",
+        html: `<svg width="32" height="32" viewBox="-16 -16 32 32" style="display:block">
+          <g transform="rotate(${rotateDeg})">
+            <line x1="0" y1="11" x2="0" y2="-11" stroke="#1a1a1a" stroke-width="5" stroke-linecap="round"/>
+            <line x1="0" y1="11" x2="0" y2="-11" stroke="#facc15" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="0,-15 5.5,-6 -5.5,-6" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round"/>
+            <polygon points="0,-15 5.5,-6 -5.5,-6" fill="#facc15"/>
+          </g>
+        </svg>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+      windArrowsRef.current.push(
+        L.marker([p.lat, p.lon], { icon, interactive: false, keyboard: false }).addTo(map),
+      );
+    }
+  }, [wind, trackA]);
 
   // Animate markers + follow camera on playback.
   useEffect(() => {
@@ -578,6 +620,29 @@ export function MapFlyover() {
           </span>
         </div>
       </div>
+
+      {wind && (
+        <div style={{
+          position: "absolute", bottom: 32, left: 10, zIndex: 1000,
+          background: "rgba(15,18,26,0.82)", border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 8, padding: "6px 10px",
+          display: "flex", alignItems: "center", gap: 8,
+          fontSize: 11, color: "var(--fg)", backdropFilter: "blur(4px)",
+          pointerEvents: "none",
+        }}>
+          <svg width="28" height="28" viewBox="-14 -14 28 28">
+            {/* Wind direction is "from" — rotate +180° so arrow points where wind is going */}
+            <g transform={`rotate(${wind.directionDeg + 180})`}>
+              <line x1="0" y1="10" x2="0" y2="-10" stroke="#facc15" strokeWidth="2" strokeLinecap="round" />
+              <polygon points="0,-13 4,-6 -4,-6" fill="#facc15" />
+            </g>
+          </svg>
+          <div style={{ lineHeight: 1.4 }}>
+            <div style={{ fontWeight: 600 }}>{Math.round(wind.speedKmh)} km/h</div>
+            <div style={{ color: "var(--fg-dim)" }}>{degToCardinal(wind.directionDeg)}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

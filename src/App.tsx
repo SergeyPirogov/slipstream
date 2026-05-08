@@ -1,6 +1,5 @@
 import { FileLoader } from "./components/FileLoader";
 import { MapFlyover } from "./components/MapFlyover";
-import { Map3D } from "./components/Map3D";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { OffsetControl } from "./components/OffsetControl";
 import { AlignmentModal } from "./components/AlignmentModal";
@@ -12,6 +11,7 @@ import { ElevationChart } from "./components/Analytics/ElevationChart";
 import { HeartRateChart } from "./components/Analytics/HeartRateChart";
 import { SplitsTable } from "./components/Analytics/SplitsTable";
 import { RiderNameEditor } from "./components/RiderNameEditor";
+import { WeatherCard } from "./components/WeatherCard";
 import { useStore } from "./store";
 import { useState } from "react";
 
@@ -21,7 +21,6 @@ export default function App() {
   const clearTrack = useStore((s) => s.clearTrack);
   const bothLoaded = !!trackA && !!trackB;
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mapMode, setMapMode] = useState<"2d" | "3d">("2d");
 
   const resetComparison = () => {
     clearTrack("A");
@@ -84,17 +83,7 @@ export default function App() {
         <>
           <div className="main">
             <div className="map-pane">
-              <div style={{ position: "relative", minHeight: 0 }}>
-                {mapMode === "2d" ? <MapFlyover /> : <Map3D />}
-                <button
-                  className={`map-mode-toggle${mapMode === "3d" ? " active" : ""}`}
-                  onClick={() => setMapMode((m) => m === "2d" ? "3d" : "2d")}
-                  title={mapMode === "2d" ? "Switch to 3D map" : "Switch to 2D map"}
-                  aria-label="Toggle 3D map"
-                >
-                  {mapMode === "2d" ? "3D" : "2D"}
-                </button>
-              </div>
+              <MapFlyover />
               <div className="elevation-strip">
                 <ElevationChart />
               </div>
@@ -106,6 +95,7 @@ export default function App() {
               </div>
             </div>
             <aside className="side">
+              <WeatherCard />
               <SummaryCards />
               <LiveStatsPanel />
               {settingsOpen && <OffsetControl />}

@@ -25,6 +25,7 @@ type State = {
   alignmentConfirmed: boolean;
   segmentM: { start: number; end: number } | null;
   commonStartScanKm: number;
+  wind: { speedKmh: number; directionDeg: number; tempC?: number; weatherCode?: number } | null;
 
   loadTrack: (slot: Slot, parsed: ParsedGpx, filename: string) => void;
   clearTrack: (slot: Slot) => void;
@@ -44,6 +45,7 @@ type State = {
   setSegmentM: (start: number, end: number) => void;
   clearSegmentM: () => void;
   setCommonStartScanKm: (km: number) => void;
+  fetchWind: () => void;
 };
 
 function maybeAutofillOffset(
@@ -69,15 +71,18 @@ export const useStore = create<State>((set, get) => ({
   alignmentConfirmed: false,
   segmentM: null,
   commonStartScanKm: 20,
+  wind: null,
 
   loadTrack: (slot, parsed, filename) => {
     set((s) => {
       const track = analyze(parsed, filename, 0);
       const next: State = slot === "A"
-        ? { ...s, trackA: track, rawA: { parsed, filename }, alignmentConfirmed: false }
+        ? { ...s, trackA: track, rawA: { parsed, filename }, alignmentConfirmed: false, wind: null }
         : { ...s, trackB: track, rawB: { parsed, filename }, alignmentConfirmed: false };
       return { ...next, ...maybeAutofillOffset(next) };
     });
+    // Only fetch wind from track A (it provides location + date).
+    if (slot === "A") setTimeout(() => get().fetchWind(), 0);
   },
 
   clearTrack: (slot) => {
@@ -203,6 +208,59 @@ export const useStore = create<State>((set, get) => ({
   setSegmentM: (start, end) => set({ segmentM: { start, end }, progress: 0, playing: false }),
   clearSegmentM: () => set({ segmentM: null, progress: 0, playing: false }),
   setCommonStartScanKm: (km) => set({ commonStartScanKm: Math.max(1, Math.round(km)) }),
+
+  fetchWind: async () => {
+    const { trackA } = get();
+    if (!trackA || trackA.points.length === 0) return;
+
+    // Use the midpoint of track A for location, start time for date.
+    const mid = trackA.points[Math.floor(trackA.points.length / 2)];
+    const t = trackA.points[0].t;
+    const date = t.toISOString().slice(0, 10);
+    const lat = mid.lat.toFixed(4);
+    const lon = mid.lon.toFixed(4);
+
+    const pickBestSlot = (
+      json: Record<string, unknown>,
+      activityTs: number,
+    ): { speedKmh: number; directionDeg: number; tempC?: number; weatherCode?: number } | null => {
+      const times: string[] = (json.hourly as Record<string, unknown>)?.time as string[] ?? [];
+      const speeds: number[] = (json.hourly as Record<string, unknown>)?.wind_speed_10m as number[] ?? [];
+      const dirs: number[] = (json.hourly as Record<string, unknown>)?.wind_direction_10m as number[] ?? [];
+      const temps: number[] = (json.hourly as Record<string, unknown>)?.temperature_2m as number[] ?? [];
+      const codes: number[] = (json.hourly as Record<string, unknown>)?.weather_code as number[] ?? [];
+      if (times.length === 0) return null;
+      let bestIdx = 0, bestDiff = Infinity;
+      for (let i = 0; i < times.length; i++) {
+        const diff = Math.abs(new Date(times[i] + "Z").getTime() - activityTs);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+      }
+      if (!times[bestIdx].startsWith(date)) return null; // slot is on wrong date
+      return { speedKmh: speeds[bestIdx], directionDeg: dirs[bestIdx], tempC: temps[bestIdx], weatherCode: codes[bestIdx] };
+    };
+
+    try {
+      const hourlyVars = "wind_speed_10m,wind_direction_10m,temperature_2m,weather_code";
+      const activityTs = t.getTime();
+
+      // Forecast API covers today and past_days=7 (no date params — avoids mutual exclusion error).
+      const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&past_days=7&forecast_days=1&hourly=${hourlyVars}&wind_speed_unit=kmh`;
+      const forecastRes = await fetch(forecastUrl);
+      if (forecastRes.ok) {
+        const slot = pickBestSlot(await forecastRes.json(), activityTs);
+        if (slot) { set({ wind: slot }); return; }
+      }
+
+      // Fall back to archive for older rides.
+      const archiveUrl = `https://api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${date}&end_date=${date}&hourly=${hourlyVars}&wind_speed_unit=kmh`;
+      const archiveRes = await fetch(archiveUrl);
+      if (!archiveRes.ok) return;
+      const slot = pickBestSlot(await archiveRes.json(), activityTs);
+      if (slot) set({ wind: slot });
+    } catch (e) {
+      // silently ignore network errors
+    }
+  },
 }));
 
 export function useMaxValue(): number {
