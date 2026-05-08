@@ -1467,8 +1467,11 @@ html, body, #root {
   width: 100%;
   max-width: 400px;
 }
-.mes-two-col .strava-panel {
+.mes-two-col .strava-panel,
+.mes-content .strava-panel {
   max-width: none;
+}
+.mes-two-col .strava-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
