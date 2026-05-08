@@ -1327,6 +1327,10 @@ html, body, #root {
   color: var(--fg-dim);
   margin-top: 4px;
 }
+.mes-note--hint {
+  color: var(--accent);
+  opacity: 0.8;
+}
 .mes-drop:hover, .mes-drop.dragging {
   border-color: var(--accent);
   background: rgba(34, 197, 94, 0.05);

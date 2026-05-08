@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
   ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -107,4 +108,75 @@ export function TwoSeriesLineChart({
 
 export function useCursorKm(): number | undefined {
   return undefined; // placeholder unused; kept for future API compatibility
+}
+
+type SingleRow = { km: number; v?: number };
+
+export function buildSingleSeries(
+  track: Track,
+  pick: (idx: number, track: Track) => number | undefined,
+  sampleCount = 600,
+): SingleRow[] {
+  const maxM = track.totals.distanceM;
+  if (maxM <= 0) return [];
+  const step = maxM / sampleCount;
+  const rows: SingleRow[] = [];
+  const dists = track.points.map((p) => p.distFromStart);
+  for (let i = 0; i <= sampleCount; i++) {
+    const m = i * step;
+    const idx = bsearch(dists, m);
+    rows.push({ km: m / 1000, v: pick(idx, track) });
+  }
+  return rows;
+}
+
+export function SingleSeriesLineChart({
+  data,
+  color,
+  yUnit,
+  height = 150,
+  area = false,
+}: {
+  data: SingleRow[];
+  color: string;
+  yUnit: string;
+  height?: number;
+  area?: boolean;
+}) {
+  const gradId = `sg-${color.replace(/[^a-z0-9]/gi, "")}`;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 4, right: 10, bottom: 4, left: 0 }}>
+        {area && (
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+        )}
+        <CartesianGrid stroke="#2a2f3a" strokeDasharray="3 3" />
+        <XAxis
+          dataKey="km"
+          stroke="#8e94a0"
+          tick={{ fontSize: 10 }}
+          tickFormatter={(v) => `${Math.round(v)}`}
+          label={{ value: "km", position: "insideBottomRight", offset: -2, fill: "#8e94a0", fontSize: 10 }}
+          type="number"
+          domain={["dataMin", "dataMax"]}
+        />
+        <YAxis stroke="#8e94a0" tick={{ fontSize: 10 }} width={36} domain={["auto", "auto"]} />
+        <Tooltip
+          contentStyle={{ background: "#171a21", border: "1px solid #2a2f3a", fontSize: 12 }}
+          formatter={(v: any) => (typeof v === "number" ? `${v.toFixed(1)} ${yUnit}` : v)}
+          labelFormatter={(l) => `${Number(l).toFixed(1)} km`}
+        />
+        {area ? (
+          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} fill={`url(#${gradId})`} dot={false} isAnimationActive={false} />
+        ) : (
+          <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
 }

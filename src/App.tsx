@@ -2,6 +2,7 @@ import { LandingPage } from "./components/LandingPage";
 import { PlanEmptyState } from "./components/PlanEmptyState";
 import { CompareEmptyState } from "./components/CompareEmptyState";
 import { MapFlyover } from "./components/MapFlyover";
+import { SingleRiderMap } from "./components/SingleRiderMap";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { AlignmentModal } from "./components/AlignmentModal";
 import { SummaryCards } from "./components/Analytics/SummaryCards";
@@ -10,6 +11,7 @@ import { PowerChart } from "./components/Analytics/PowerChart";
 import { ElevationChart } from "./components/Analytics/ElevationChart";
 import { HeartRateChart } from "./components/Analytics/HeartRateChart";
 import { SplitsTable } from "./components/Analytics/SplitsTable";
+import { SingleRiderMapPaneContent, SingleRiderSidebar } from "./components/Analytics/SingleRiderView";
 import { RiderNameEditor } from "./components/RiderNameEditor";
 import { RoutePlannerMap } from "./components/RoutePlannerView";
 import { RoutePlannerStats } from "./components/RoutePlannerStats";
@@ -37,6 +39,8 @@ export default function App() {
   const loadTrack = useStore((s) => s.loadTrack);
   const setPlanRouteLoading = useStore((s) => s.setPlanRouteLoading);
   const bothLoaded = !!trackA && !!trackB;
+  const oneLoaded = !!trackA && !trackB;
+  const anyLoaded = !!trackA || !!trackB;
   const planLoaded = !!planRoute;
   const reopenAlignment = useStore((s) => s.reopenAlignment);
   const [changeRouteOpen, setChangeRouteOpen] = useState(false);
@@ -147,59 +151,77 @@ export default function App() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
-            Compare
+            Analyze
           </button>
         </div>
 
         <div className="header-right">
-          {bothLoaded && appMode === "compare" && (
+          {anyLoaded && appMode === "compare" && (
             <div className="header-route-pill" ref={changeRidesRef}>
-              <div className="compare-pill-riders">
-                <span className="dot dot-a" />
-                <RiderNameEditor slot="A" readonly />
-                <span className="compare-pill-vs">vs</span>
-                <span className="dot dot-b" />
-                <RiderNameEditor slot="B" readonly />
-              </div>
+              {bothLoaded ? (
+                <div className="compare-pill-riders">
+                  <span className="dot dot-a" />
+                  <RiderNameEditor slot="A" readonly />
+                  <span className="compare-pill-vs">vs</span>
+                  <span className="dot dot-b" />
+                  <RiderNameEditor slot="B" readonly />
+                </div>
+              ) : (
+                <div className="compare-pill-riders">
+                  <span className="dot dot-a" />
+                  <RiderNameEditor slot="A" readonly />
+                </div>
+              )}
               <button
                 className={`header-route-change${changeRidesOpen ? " active" : ""}`}
                 onClick={() => setChangeRidesOpen((v) => !v)}
               >
                 ↺ Change
               </button>
-              <button
-                className="header-icon-btn"
-                onClick={reopenAlignment}
-                title="Time alignment settings"
-                aria-label="Settings"
-                style={{ marginLeft: 2 }}
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-              </button>
+              {bothLoaded && (
+                <button
+                  className="header-icon-btn"
+                  onClick={reopenAlignment}
+                  title="Time alignment settings"
+                  aria-label="Settings"
+                  style={{ marginLeft: 2 }}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+              )}
               {changeRidesOpen && (
                 <div className="change-route-popover">
-                  <div className="crp-title">Change rides</div>
+                  <div className="crp-title">{bothLoaded ? "Change rides" : "Manage ride"}</div>
                   <label className="crp-option" htmlFor="crp-rider-a">
                     <span className="dot dot-a" />
                     Replace {trackA!.rider || "Rider A"}
                     <input id="crp-rider-a" type="file" accept=".gpx,.fit" style={{ display: "none" }}
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("A", f); }} />
                   </label>
-                  <label className="crp-option" htmlFor="crp-rider-b">
-                    <span className="dot dot-b" />
-                    Replace {trackB!.rider || "Rider B"}
-                    <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
-                  </label>
+                  {bothLoaded ? (
+                    <label className="crp-option" htmlFor="crp-rider-b">
+                      <span className="dot dot-b" />
+                      Replace {trackB!.rider || "Rider B"}
+                      <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
+                    </label>
+                  ) : (
+                    <label className="crp-option" htmlFor="crp-rider-b-add">
+                      <span className="dot dot-b" />
+                      Add second rider to compare
+                      <input id="crp-rider-b-add" type="file" accept=".gpx,.fit" style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
+                    </label>
+                  )}
                   <div className="crp-divider" />
                   <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); resetComparison(); }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
                     </svg>
-                    Clear both rides
+                    Clear {bothLoaded ? "both rides" : "ride"}
                   </button>
                 </div>
               )}
@@ -347,6 +369,16 @@ export default function App() {
             </div>
             <AlignmentModal />
           </>
+        ) : oneLoaded ? (
+          <div className="main">
+            <div className="map-pane">
+              <SingleRiderMap />
+              <SingleRiderMapPaneContent />
+            </div>
+            <aside className="side">
+              <SingleRiderSidebar />
+            </aside>
+          </div>
         ) : (
           <CompareEmptyState />
         )

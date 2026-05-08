@@ -155,12 +155,12 @@ export function LandingPage({ onSelectMode }: { onSelectMode: (m: AppMode) => vo
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
               </svg>
             </div>
-            <h2 className="landing-card-title">Compare rides</h2>
+            <h2 className="landing-card-title">Analyze & compare</h2>
             <p className="landing-card-desc">
-              Drop two GPX or FIT files and replay them side-by-side on a live map. See speed, power, heart rate, and elevation charts synced to the exact same moment on the road.
+              Drop one file to analyze a ride — speed, power, heart rate, elevation, and splits. Drop two files to replay them side-by-side and see exactly where time was won or lost.
             </p>
             <span className="landing-card-cta">
-              Open ride comparison
+              Open analyzer
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>

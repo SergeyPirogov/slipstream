@@ -91,6 +91,7 @@ function formatDuration(sec: number): string {
 }
 
 export function CompareEmptyState() {
+  const trackA = useStore((s) => s.trackA);
   return (
     <div className="mode-empty-state">
       <div className="mes-content mes-content--wide">
@@ -99,18 +100,25 @@ export function CompareEmptyState() {
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
         </div>
-        <h2 className="mes-title">Compare two rides</h2>
-        <p className="mes-sub">Drop a GPX or FIT file for each rider to start. Both files are needed.</p>
+        <h2 className="mes-title">Analyze or compare</h2>
+        <p className="mes-sub">Drop one file to analyze a single ride. Drop two to compare riders head-to-head.</p>
 
         <div className="mes-two-col">
           <RiderDrop slot="A" />
-          <div className="mes-col-divider"><span>vs</span></div>
+          <div className="mes-col-divider"><span>{trackA ? "+" : "vs"}</span></div>
           <RiderDrop slot="B" />
         </div>
 
-        <div className="mes-note">
-          Different start times or timezones? We'll walk you through aligning them.
-        </div>
+        {trackA && (
+          <div className="mes-note mes-note--hint">
+            Rider A loaded — drop a second file to compare, or close this panel to view stats.
+          </div>
+        )}
+        {!trackA && (
+          <div className="mes-note">
+            Different start times or timezones? We'll walk you through aligning them.
+          </div>
+        )}
       </div>
     </div>
   );
