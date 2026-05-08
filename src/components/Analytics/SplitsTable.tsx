@@ -37,12 +37,13 @@ export function SplitsTable() {
   const trackB = useStore((s) => s.trackB);
   const offsetSec = useStore((s) => s.offsetSec);
   const segmentM = useStore((s) => s.segmentM);
-  if (!trackA || !trackB) return null;
+  if (!trackA) return null;
 
   const segStartKm = segmentM ? segmentM.start / 1000 : 0;
-  const segEndKm = segmentM
-    ? segmentM.end / 1000
-    : Math.min(trackA.totals.distanceM, trackB.totals.distanceM) / 1000;
+  const maxDistKm = trackB
+    ? Math.min(trackA.totals.distanceM, trackB.totals.distanceM) / 1000
+    : trackA.totals.distanceM / 1000;
+  const segEndKm = segmentM ? segmentM.end / 1000 : maxDistKm;
   const limitKm = segEndKm;
   const splitKm = segmentM ? Math.max(1, Math.round((segEndKm - segStartKm) / 5)) : 10;
 
@@ -55,37 +56,35 @@ export function SplitsTable() {
 
   const rows = boundaries.map((km, i) => {
     const prevKm = i === 0 ? segStartKm : boundaries[i - 1];
-    const aEndElapsed = elapsedAtKm(trackA, km) ?? 0;
-    const bEndElapsed = elapsedAtKm(trackB, km) ?? 0;
-    const aPrevElapsed = elapsedAtKm(trackA, prevKm) ?? 0;
-    const bPrevElapsed = elapsedAtKm(trackB, prevKm) ?? 0;
-    const aDurReal = aEndElapsed - aPrevElapsed;
-    const bDurReal = bEndElapsed - bPrevElapsed;
     const segKm = km - prevKm;
-
-    // On the first row only, subtract the head-start wait from the rider who started earlier.
-    //   offsetSec > 0 → B started after A, so A had the head start; cut it from A's first split.
-    //   offsetSec < 0 → A started after B; cut it from B's first split.
+    const aEndElapsed = elapsedAtKm(trackA, km) ?? 0;
+    const aPrevElapsed = elapsedAtKm(trackA, prevKm) ?? 0;
+    const aDurReal = aEndElapsed - aPrevElapsed;
     let aDur = aDurReal;
+
+    const bEndElapsed = trackB ? (elapsedAtKm(trackB, km) ?? 0) : null;
+    const bPrevElapsed = trackB ? (elapsedAtKm(trackB, prevKm) ?? 0) : null;
+    const bDurReal = bEndElapsed !== null && bPrevElapsed !== null ? bEndElapsed - bPrevElapsed : null;
     let bDur = bDurReal;
-    if (i === 0) {
+
+    if (i === 0 && trackB) {
       if (offsetSec > 0) aDur = Math.max(0, aDurReal - offsetSec);
-      else if (offsetSec < 0) bDur = Math.max(0, bDurReal + offsetSec);
+      else if (offsetSec < 0 && bDur !== null && bDurReal !== null) bDur = Math.max(0, bDurReal + offsetSec);
     }
 
     const aPwr = avgPowerBetweenKm(trackA, prevKm, km);
-    const bPwr = avgPowerBetweenKm(trackB, prevKm, km);
+    const bPwr = trackB ? avgPowerBetweenKm(trackB, prevKm, km) : null;
     return {
       km,
       aDur,
       bDur,
       aSpd: aDurReal > 0 ? (segKm / aDurReal) * 3600 : 0,
-      bSpd: bDurReal > 0 ? (segKm / bDurReal) * 3600 : 0,
+      bSpd: bDurReal !== null && bDurReal > 0 ? (segKm / bDurReal) * 3600 : null,
       aPwr,
       bPwr,
       aWkg: aPwr !== null && trackA.weightKg ? aPwr / trackA.weightKg : null,
-      bWkg: bPwr !== null && trackB.weightKg ? bPwr / trackB.weightKg : null,
-      delta: bEndElapsed + offsetSec - aEndElapsed,
+      bWkg: bPwr !== null && trackB?.weightKg ? bPwr / trackB.weightKg : null,
+      delta: bEndElapsed !== null ? bEndElapsed + offsetSec - aEndElapsed : null,
     };
   });
 
@@ -99,8 +98,8 @@ export function SplitsTable() {
           <tr>
             <th>km</th>
             <th>{trackA.rider.slice(0, 10)}</th>
-            <th>{trackB.rider.slice(0, 10)}</th>
-            <th>Δ overall</th>
+            {trackB && <th>{trackB.rider.slice(0, 10)}</th>}
+            {trackB && <th>Δ overall</th>}
           </tr>
         </thead>
         <tbody>
@@ -113,15 +112,19 @@ export function SplitsTable() {
                 <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.aSpd.toFixed(1)} km/h</span>
                 {hasPower && r.aPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.aPwr)} W{r.aWkg !== null ? ` (${r.aWkg.toFixed(2)} w/kg)` : ""}</span></>}
               </td>
-              <td>
-                {fmtDur(r.bDur)}
-                <br />
-                <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.bSpd.toFixed(1)} km/h</span>
-                {hasPower && r.bPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.bPwr)} W{r.bWkg !== null ? ` (${r.bWkg.toFixed(2)} w/kg)` : ""}</span></>}
-              </td>
-              <td className={r.delta > 0 ? "delta-pos" : r.delta < 0 ? "delta-neg" : ""}>
-                {r.delta === 0 ? "—" : `${r.delta > 0 ? "+" : "−"}${fmtDur(Math.abs(r.delta))}`}
-              </td>
+              {trackB && (
+                <td>
+                  {r.bDur !== null ? fmtDur(r.bDur) : "—"}
+                  <br />
+                  <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{r.bSpd !== null ? `${r.bSpd.toFixed(1)} km/h` : "—"}</span>
+                  {hasPower && r.bPwr !== null && <><br /><span style={{ color: "var(--fg-dim)", fontSize: 11 }}>{Math.round(r.bPwr)} W{r.bWkg !== null ? ` (${r.bWkg.toFixed(2)} w/kg)` : ""}</span></>}
+                </td>
+              )}
+              {trackB && (
+                <td className={r.delta !== null && r.delta > 0 ? "delta-pos" : r.delta !== null && r.delta < 0 ? "delta-neg" : ""}>
+                  {r.delta === null || r.delta === 0 ? "—" : `${r.delta > 0 ? "+" : "−"}${fmtDur(Math.abs(r.delta))}`}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
