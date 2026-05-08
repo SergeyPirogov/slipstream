@@ -22,6 +22,14 @@ import { parseGpxFile } from "./gpx/parse";
 import { parseFitFile } from "./gpx/parseFit";
 import { startOAuth, handleOAuthCallback } from "./strava/auth";
 
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+    </svg>
+  );
+}
+
 export default function App() {
   const appMode = useStore((s) => s.appMode);
   const setAppMode = useStore((s) => s.setAppMode);
@@ -198,13 +206,23 @@ export default function App() {
                     <input id="crp-rider-a" type="file" accept=".gpx,.fit" style={{ display: "none" }}
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("A", f); }} />
                   </label>
+                  {bothLoaded && (
+                    <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); clearTrack("A"); }}>
+                      <TrashIcon /> Remove {trackA!.rider || "Rider A"}
+                    </button>
+                  )}
                   {bothLoaded ? (
-                    <label className="crp-option" htmlFor="crp-rider-b">
-                      <span className="dot dot-b" />
-                      Replace {trackB!.rider || "Rider B"}
-                      <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
-                    </label>
+                    <>
+                      <label className="crp-option" htmlFor="crp-rider-b">
+                        <span className="dot dot-b" />
+                        Replace {trackB!.rider || "Rider B"}
+                        <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
+                      </label>
+                      <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); clearTrack("B"); }}>
+                        <TrashIcon /> Remove {trackB!.rider || "Rider B"}
+                      </button>
+                    </>
                   ) : (
                     <label className="crp-option" htmlFor="crp-rider-b-add">
                       <span className="dot dot-b" />
@@ -215,10 +233,7 @@ export default function App() {
                   )}
                   <div className="crp-divider" />
                   <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); resetComparison(); }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                    Clear {bothLoaded ? "both rides" : "ride"}
+                    <TrashIcon /> Clear {bothLoaded ? "both rides" : "ride"}
                   </button>
                 </div>
               )}

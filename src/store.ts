@@ -248,9 +248,14 @@ export const useStore = create<State>((set, get) => ({
   },
 
   clearTrack: (slot) => {
-    set((s) => (slot === "A"
-      ? { ...s, trackA: null, rawA: null }
-      : { ...s, trackB: null, rawB: null }));
+    set((s) => {
+      if (slot === "B") return { ...s, trackB: null, rawB: null, alignmentConfirmed: false };
+      // Removing A: if B exists, promote it to A so the solo view stays intact
+      if (s.trackB) {
+        return { ...s, trackA: s.trackB, rawA: s.rawB, trackB: null, rawB: null, alignmentConfirmed: false, offsetSec: 0, offsetTouched: false };
+      }
+      return { ...s, trackA: null, rawA: null };
+    });
   },
 
   setRiderName: (slot, name) => {
