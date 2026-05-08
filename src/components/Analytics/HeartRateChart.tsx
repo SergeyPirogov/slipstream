@@ -19,7 +19,7 @@ export function HeartRateChart() {
     [trackA, trackB, segmentM],
   );
 
-  if (!trackA || !trackB) return null;
+  if (!trackA) return null;
 
   const hasHr = hrData.some((d) => d.a !== undefined || d.b !== undefined);
   const hasCad = cadData.some((d) => d.a !== undefined || d.b !== undefined);
@@ -43,7 +43,7 @@ export function HeartRateChart() {
             yLabel="HR"
             yUnit="bpm"
             riderA={trackA.rider}
-            riderB={trackB.rider}
+            riderB={trackB?.rider ?? ""}
             segmentM={segmentM}
           />
         </div>
@@ -57,7 +57,7 @@ export function HeartRateChart() {
             yLabel="Cad"
             yUnit="rpm"
             riderA={trackA.rider}
-            riderB={trackB.rider}
+            riderB={trackB?.rider ?? ""}
             segmentM={segmentM}
           />
         </div>

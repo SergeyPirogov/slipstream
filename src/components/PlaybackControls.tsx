@@ -37,14 +37,14 @@ export function PlaybackControls() {
   }, [progress]);
 
   useEffect(() => {
-    if (!playing || !trackA || !trackB) return;
+    if (!playing || !trackA) return;
     let raf = 0;
     let last = performance.now();
     const refSeconds =
       syncMode === "time"
         ? maxValue
         : maxValue /
-          ((Math.min(trackA.totals.avgSpeedKmh, trackB.totals.avgSpeedKmh) || 20) * (1000 / 3600));
+          ((Math.min(trackA.totals.avgSpeedKmh, trackB?.totals.avgSpeedKmh ?? trackA.totals.avgSpeedKmh) || 20) * (1000 / 3600));
     const ceiling = segBounds ? segBounds.endFrac : 1;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
@@ -58,7 +58,7 @@ export function PlaybackControls() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, speed, syncMode, maxValue, trackA, trackB, setProgress, setPlaying]);
+  }, [playing, speed, syncMode, maxValue, trackA, trackB?.totals.avgSpeedKmh, setProgress, setPlaying]);
 
   // Keyboard shortcuts: + / - to cycle speed presets.
   useEffect(() => {
@@ -83,37 +83,39 @@ export function PlaybackControls() {
     return () => window.removeEventListener("keydown", handler);
   }, [speed, setSpeed]);
 
-  const disabled = !trackA || !trackB;
+  const disabled = !trackA;
 
   const syncA = useMemo(() => (trackA ? buildSyncArrays(trackA) : null), [trackA]);
   const syncB = useMemo(() => (trackB ? buildSyncArrays(trackB) : null), [trackB]);
 
-  // Build the time + distance readout. In time-sync mode "time" is the shared-clock value
-  // and "distance" is the leading rider's distance at that moment; in distance-sync it's the reverse.
   let timeLabel = "—";
   let distLabel = "—";
-  if (trackA && trackB && syncA && syncB) {
+  if (trackA && syncA) {
     const target = progress * maxValue;
     const arrA = syncMode === "time" ? syncA.time : syncA.distance;
-    const arrB = syncMode === "time" ? syncB.time : syncB.distance;
-    const { aValue, bValue } = queryValues(
-      target,
-      syncMode,
-      arrA[arrA.length - 1],
-      arrB[arrB.length - 1],
-      offsetSec,
-    );
-    const posA = positionAtValue(trackA, arrA, aValue);
-    const posB = positionAtValue(trackB, arrB, bValue);
-    if (syncMode === "time") {
-      timeLabel = formatTime(target);
-      distLabel = formatKm(Math.max(posA.distFromStart, posB.distFromStart));
+    if (trackB && syncB) {
+      const arrB = syncMode === "time" ? syncB.time : syncB.distance;
+      const { aValue, bValue } = queryValues(
+        target, syncMode, arrA[arrA.length - 1], arrB[arrB.length - 1], offsetSec,
+      );
+      const posA = positionAtValue(trackA, arrA, aValue);
+      const posB = positionAtValue(trackB, arrB, bValue);
+      if (syncMode === "time") {
+        timeLabel = formatTime(target);
+        distLabel = formatKm(Math.max(posA.distFromStart, posB.distFromStart));
+      } else {
+        distLabel = formatKm(target);
+        timeLabel = formatTime(Math.min(posA.elapsedSec, posB.elapsedSec + offsetSec));
+      }
     } else {
-      distLabel = formatKm(target);
-      // Use the faster rider's elapsed (whoever reached that km first) on the shared clock.
-      const aSharedT = posA.elapsedSec;
-      const bSharedT = posB.elapsedSec + offsetSec;
-      timeLabel = formatTime(Math.min(aSharedT, bSharedT));
+      const posA = positionAtValue(trackA, arrA, target);
+      if (syncMode === "time") {
+        timeLabel = formatTime(target);
+        distLabel = formatKm(posA.distFromStart);
+      } else {
+        distLabel = formatKm(target);
+        timeLabel = formatTime(posA.elapsedSec);
+      }
     }
   }
 

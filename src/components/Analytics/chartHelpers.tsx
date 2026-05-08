@@ -22,8 +22,10 @@ export function buildSeriesByDistance(
   sampleCount = 600,
   segmentM?: { start: number; end: number } | null,
 ): Row[] {
-  if (!trackA || !trackB) return [];
-  const fullMaxM = Math.max(trackA.totals.distanceM, trackB.totals.distanceM);
+  if (!trackA) return [];
+  const fullMaxM = trackB
+    ? Math.max(trackA.totals.distanceM, trackB.totals.distanceM)
+    : trackA.totals.distanceM;
   const startM = segmentM ? segmentM.start : 0;
   const endM = segmentM ? Math.min(segmentM.end, fullMaxM) : fullMaxM;
   const rangeM = endM - startM;
@@ -31,14 +33,15 @@ export function buildSeriesByDistance(
   const step = rangeM / sampleCount;
   const rows: Row[] = [];
   const aDists = trackA.points.map((p) => p.distFromStart);
-  const bDists = trackB.points.map((p) => p.distFromStart);
+  const bDists = trackB ? trackB.points.map((p) => p.distFromStart) : null;
   for (let i = 0; i <= sampleCount; i++) {
     const m = startM + i * step;
     const km = m / 1000;
     const aIdx = bsearch(aDists, m);
-    const bIdx = bsearch(bDists, m);
     const a = m <= trackA.totals.distanceM ? pick(aIdx, trackA) : undefined;
-    const b = m <= trackB.totals.distanceM ? pick(bIdx, trackB) : undefined;
+    const b = bDists && trackB && m <= trackB.totals.distanceM
+      ? pick(bsearch(bDists, m), trackB)
+      : undefined;
     rows.push({ km, a, b });
   }
   return rows;
@@ -97,9 +100,9 @@ export function TwoSeriesLineChart({
           formatter={(v: any) => (typeof v === "number" ? `${v.toFixed(1)} ${yUnit}` : v)}
           labelFormatter={(l) => `${Number(l).toFixed(1)} km`}
         />
-        <Legend wrapperStyle={{ fontSize: 11 }} iconSize={8} />
+        {riderB && <Legend wrapperStyle={{ fontSize: 11 }} iconSize={8} />}
         <Line name={riderA} type="monotone" dataKey="a" stroke="#f97316" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-        <Line name={riderB} type="monotone" dataKey="b" stroke="#3b82f6" dot={false} strokeWidth={1.5} isAnimationActive={false} />
+        {riderB && <Line name={riderB} type="monotone" dataKey="b" stroke="#3b82f6" dot={false} strokeWidth={1.5} isAnimationActive={false} />}
         {cursorKm !== undefined && <ReferenceLine x={cursorKm} stroke="#22c55e" strokeDasharray="3 3" />}
       </ComposedChart>
     </ResponsiveContainer>

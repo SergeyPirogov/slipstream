@@ -497,85 +497,55 @@ export function MapFlyover() {
   // Animate markers + follow camera on playback.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !trackA || !trackB || !syncA || !syncB) return;
+    if (!map || !trackA || !syncA) return;
 
     const target = progress * maxValue;
     const arrA = syncMode === "time" ? syncA.time : syncA.distance;
-    const arrB = syncMode === "time" ? syncB.time : syncB.distance;
-    const { aValue, bValue, aFinished, bFinished } = queryValues(
-      target,
-      syncMode,
-      arrA[arrA.length - 1],
-      arrB[arrB.length - 1],
-      offsetSec,
-    );
+    const aValue = target;
     const posA = positionAtValue(trackA, arrA, aValue);
-    const posB = positionAtValue(trackB, arrB, bValue);
-
-    // Pixel positions for leader-line math.
     const pxA = map.latLngToContainerPoint([posA.lat, posA.lon]);
-    const pxB = map.latLngToContainerPoint([posB.lat, posB.lon]);
+    const statsA: Stats = { speedKmh: posA.speedKmh, hr: posA.hr, power: posA.power3s ?? posA.power };
 
-    // Fixed sides: A label always to the left, B always to the right.
-    const dxA = -Math.abs(TETHER_DX_A);
-    const dxB = Math.abs(TETHER_DX_A);
-    const dyA = TETHER_DY;
-    const dyB = TETHER_DY;
-
-    const statsA: Stats = {
-      speedKmh: aFinished ? 0 : posA.speedKmh,
-      hr: posA.hr,
-      power: aFinished ? undefined : (posA.power3s ?? posA.power),
-    };
-    const statsB: Stats = {
-      speedKmh: bFinished ? 0 : posB.speedKmh,
-      hr: posB.hr,
-      power: bFinished ? undefined : (posB.power3s ?? posB.power),
-    };
-
-    // Move markers.
     markerARef.current?.setLatLng([posA.lat, posA.lon]);
-    markerBRef.current?.setLatLng([posB.lat, posB.lon]);
+    positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA.rider, statsA, -Math.abs(TETHER_DX_A), TETHER_DY);
 
-    // Tethered labels + leader lines carry the rider name + live stats off the map geometry.
-    positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA.rider, statsA, dxA, dyA);
-    positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB.rider, statsB, dxB, dyB);
+    if (trackB && syncB) {
+      const arrB = syncMode === "time" ? syncB.time : syncB.distance;
+      const { aValue: aVal2, bValue, aFinished, bFinished } = queryValues(
+        target, syncMode, arrA[arrA.length - 1], arrB[arrB.length - 1], offsetSec,
+      );
+      const posA2 = positionAtValue(trackA, arrA, aVal2);
+      const posB = positionAtValue(trackB, arrB, bValue);
+      const pxA2 = map.latLngToContainerPoint([posA2.lat, posA2.lon]);
+      const pxB = map.latLngToContainerPoint([posB.lat, posB.lon]);
+      const statsB: Stats = { speedKmh: bFinished ? 0 : posB.speedKmh, hr: posB.hr, power: bFinished ? undefined : (posB.power3s ?? posB.power) };
 
-    // Gap between the two riders (meters along route).
-    const gapMeters = Math.abs(posA.distFromStart - posB.distFromStart);
+      markerARef.current?.setLatLng([posA2.lat, posA2.lon]);
+      markerBRef.current?.setLatLng([posB.lat, posB.lon]);
+      positionTetheredLabel(labelARef.current, leaderARef.current, pxA2, trackA.rider, { ...statsA, speedKmh: aFinished ? 0 : posA2.speedKmh }, -Math.abs(TETHER_DX_A), TETHER_DY);
+      positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB.rider, statsB, Math.abs(TETHER_DX_B), TETHER_DY);
 
-    // Ghost-race Δ time at the common distance.
-    // When one rider has finished, use their total elapsed time vs the other's
-    // elapsed time at that same distance — delta keeps growing as the other continues.
-    const refDist = Math.max(
-      0,
-      Math.min(
-        posA.distFromStart,
-        posB.distFromStart,
-        syncA.distance[syncA.distance.length - 1],
-        syncB.distance[syncB.distance.length - 1],
-      ),
-    );
-    const dPosA = positionAtValue(trackA, syncA.distance, refDist);
-    const dPosB = positionAtValue(trackB, syncB.distance, refDist);
-    const timeDelta = dPosB.elapsedSec + offsetSec - dPosA.elapsedSec;
+      const refDist = Math.max(0, Math.min(posA2.distFromStart, posB.distFromStart, syncA.distance[syncA.distance.length - 1], syncB.distance[syncB.distance.length - 1]));
+      const dPosA = positionAtValue(trackA, syncA.distance, refDist);
+      const dPosB = positionAtValue(trackB, syncB.distance, refDist);
+      const timeDelta = dPosB.elapsedSec + offsetSec - dPosA.elapsedSec;
+      const gapKm = Math.abs(posA2.distFromStart - posB.distFromStart) / 1000;
+      const timePart = Math.abs(timeDelta) < 0.5 ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
+      const waitSuffix = (aFinished || bFinished) ? ` · ${aFinished ? trackA.rider : trackB.rider} finished` : "";
+      const label = `${gapKm.toFixed(2)} km · ${timePart}${waitSuffix}`;
+      const tint: "pos" | "neg" | "neutral" = Math.abs(timeDelta) < 0.5 ? "neutral" : timeDelta > 0 ? "pos" : "neg";
+      positionGapOverlay(gapOverlayRef.current, pxA2, pxB, label, tint);
+      gapLabelTextRef.current = label;
+      gapTintRef.current = tint;
 
-    const distKm = gapMeters / 1000;
-    const distLabel = `${distKm.toFixed(2)} km`;
-    const timePart = Math.abs(timeDelta) < 0.5 ? "0s" : `${timeDelta > 0 ? "+" : "−"}${fmtHMS(Math.abs(timeDelta))}`;
-    const waitSuffix = (aFinished || bFinished) ? ` · ${aFinished ? trackA.rider : trackB.rider} finished` : "";
-
-    const label = `${distLabel} · ${timePart}${waitSuffix}`;
-
-    const tint: "pos" | "neg" | "neutral" = Math.abs(timeDelta) < 0.5 ? "neutral" : timeDelta > 0 ? "pos" : "neg";
-    positionGapOverlay(gapOverlayRef.current, pxA, pxB, label, tint);
-    gapLabelTextRef.current = label;
-    gapTintRef.current = tint;
-
-    if (playing) {
-      const midLat = (posA.lat + posB.lat) / 2;
-      const midLng = (posA.lon + posB.lon) / 2;
-      map.panTo([midLat, midLng], { animate: true, duration: 0.3 });
+      if (playing) {
+        map.panTo([(posA2.lat + posB.lat) / 2, (posA2.lon + posB.lon) / 2], { animate: true, duration: 0.3 });
+      }
+    } else {
+      if (gapOverlayRef.current) gapOverlayRef.current.style.display = "none";
+      if (labelBRef.current) labelBRef.current.style.display = "none";
+      if (leaderBRef.current) leaderBRef.current.style.display = "none";
+      if (playing) map.panTo([posA.lat, posA.lon], { animate: true, duration: 0.3 });
     }
   }, [progress, syncMode, maxValue, trackA, trackB, syncA, syncB, playing, offsetSec]);
 

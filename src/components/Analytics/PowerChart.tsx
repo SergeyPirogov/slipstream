@@ -15,7 +15,7 @@ export function PowerChart() {
     [trackA, trackB, segmentM],
   );
 
-  if (!trackA || !trackB) return null;
+  if (!trackA) return null;
   const hasPower = data.some((d) => d.a !== undefined || d.b !== undefined);
   if (!hasPower) return null;
 
@@ -36,7 +36,7 @@ export function PowerChart() {
         yLabel="Power"
         yUnit="W"
         riderA={trackA.rider}
-        riderB={trackB.rider}
+        riderB={trackB?.rider ?? ""}
         segmentM={segmentM}
       />
     </div>

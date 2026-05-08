@@ -15,7 +15,7 @@ export function SpeedChart() {
     [trackA, trackB, segmentM],
   );
 
-  if (!trackA || !trackB) return null;
+  if (!trackA) return null;
 
   // Cursor expressed in km
   let cursorKm: number | undefined;
@@ -37,7 +37,7 @@ export function SpeedChart() {
         yLabel="Speed"
         yUnit="km/h"
         riderA={trackA.rider}
-        riderB={trackB.rider}
+        riderB={trackB?.rider ?? ""}
         segmentM={segmentM}
       />
     </div>

@@ -2,7 +2,6 @@ import { LandingPage } from "./components/LandingPage";
 import { PlanEmptyState } from "./components/PlanEmptyState";
 import { CompareEmptyState } from "./components/CompareEmptyState";
 import { MapFlyover } from "./components/MapFlyover";
-import { SingleRiderMap } from "./components/SingleRiderMap";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { AlignmentModal } from "./components/AlignmentModal";
 import { SummaryCards } from "./components/Analytics/SummaryCards";
@@ -11,7 +10,6 @@ import { PowerChart } from "./components/Analytics/PowerChart";
 import { ElevationChart } from "./components/Analytics/ElevationChart";
 import { HeartRateChart } from "./components/Analytics/HeartRateChart";
 import { SplitsTable } from "./components/Analytics/SplitsTable";
-import { SingleRiderMapPaneContent, SingleRiderSidebar } from "./components/Analytics/SingleRiderView";
 import { RiderNameEditor } from "./components/RiderNameEditor";
 import { RoutePlannerMap } from "./components/RoutePlannerView";
 import { RoutePlannerStats } from "./components/RoutePlannerStats";
@@ -38,9 +36,8 @@ export default function App() {
   const loadRoute = useStore((s) => s.loadRoute);
   const loadTrack = useStore((s) => s.loadTrack);
   const setPlanRouteLoading = useStore((s) => s.setPlanRouteLoading);
+  const anyLoaded = !!trackA;
   const bothLoaded = !!trackA && !!trackB;
-  const oneLoaded = !!trackA && !trackB;
-  const anyLoaded = !!trackA || !!trackB;
   const planLoaded = !!planRoute;
   const reopenAlignment = useStore((s) => s.reopenAlignment);
   const [changeRouteOpen, setChangeRouteOpen] = useState(false);
@@ -347,7 +344,7 @@ export default function App() {
           />
         )
       ) : (
-        bothLoaded ? (
+        anyLoaded ? (
           <>
             <div className="main">
               <div className="map-pane">
@@ -367,18 +364,8 @@ export default function App() {
                 <SplitsTable />
               </aside>
             </div>
-            <AlignmentModal />
+            {bothLoaded && <AlignmentModal />}
           </>
-        ) : oneLoaded ? (
-          <div className="main">
-            <div className="map-pane">
-              <SingleRiderMap />
-              <SingleRiderMapPaneContent />
-            </div>
-            <aside className="side">
-              <SingleRiderSidebar />
-            </aside>
-          </div>
         ) : (
           <CompareEmptyState />
         )

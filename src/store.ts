@@ -428,7 +428,8 @@ export const useStore = create<State>((set, get) => ({
 
 export function useMaxValue(): number {
   const { trackA, trackB, syncMode, offsetSec } = useStore();
-  if (!trackA || !trackB) return 1;
+  if (!trackA) return 1;
+  if (!trackB) return syncMode === "time" ? trackA.totals.durationSec : trackA.totals.distanceM;
   return maxValueForMode(trackA, trackB, syncMode, offsetSec);
 }
 

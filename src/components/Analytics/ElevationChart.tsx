@@ -35,14 +35,14 @@ export function ElevationChart() {
   );
 
   const xTicks = useMemo(() => {
-    if (!trackA || !trackB) return undefined;
-    const maxKm = Math.max(trackA.totals.distanceM, trackB.totals.distanceM) / 1000;
+    if (!trackA) return undefined;
+    const maxKm = Math.max(trackA.totals.distanceM, trackB?.totals.distanceM ?? 0) / 1000;
     const ticks: number[] = [];
     for (let km = 0; km <= maxKm; km += 10) ticks.push(km);
     return ticks;
   }, [trackA, trackB]);
 
-  if (!trackA || !trackB) return null;
+  if (!trackA) return null;
 
   let cursorKm: number | undefined;
   if (syncMode === "distance") {
@@ -138,7 +138,7 @@ export function ElevationChart() {
           />
           <Legend wrapperStyle={{ fontSize: 11 }} iconSize={8} />
           <Area name={trackA.rider} type="monotone" dataKey="a" stroke="#f97316" strokeWidth={1.5} fill="url(#eleFill)" isAnimationActive={false} />
-          <Line name={trackB.rider} type="monotone" dataKey="b" stroke="#3b82f6" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          {trackB && <Line name={trackB.rider} type="monotone" dataKey="b" stroke="#3b82f6" dot={false} strokeWidth={1.2} isAnimationActive={false} />}
           {trackA.climbs.map((c, i) => (
             <ReferenceArea
               key={`a-${i}`}
