@@ -14,7 +14,8 @@ export function PlanEmptyState({
 }) {
   const loadRoute = useStore((s) => s.loadRoute);
   const setPlanRouteLoading = useStore((s) => s.setPlanRouteLoading);
-  const stravaToken = useStore((s) => s.stravaToken);
+  const stravaTokenRaw = useStore((s) => s.stravaToken);
+  const stravaToken = __GITHUB_PAGES__ ? null : stravaTokenRaw;
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,14 +106,18 @@ export function PlanEmptyState({
           <>
             {dropZone}
             {error && <p className="mes-error">{error}</p>}
-            <div className="mes-divider"><span>or</span></div>
-            <button className="mes-strava-btn" onClick={startOAuth}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-                <line x1="4" y1="22" x2="4" y2="15"/>
-              </svg>
-              Connect Strava to browse routes
-            </button>
+            {!__GITHUB_PAGES__ && (
+              <>
+                <div className="mes-divider"><span>or</span></div>
+                <button className="mes-strava-btn" onClick={startOAuth}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                    <line x1="4" y1="22" x2="4" y2="15"/>
+                  </svg>
+                  Connect Strava to browse routes
+                </button>
+              </>
+            )}
           </>
         )}
 

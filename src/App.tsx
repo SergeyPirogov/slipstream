@@ -45,7 +45,8 @@ export default function App() {
   const changeRouteRef = useRef<HTMLDivElement>(null);
   const changeRidesRef = useRef<HTMLDivElement>(null);
 
-  const stravaToken = useStore((s) => s.stravaToken);
+  const stravaTokenRaw = useStore((s) => s.stravaToken);
+  const stravaToken = __GITHUB_PAGES__ ? null : stravaTokenRaw;
 
   const handleRouteFile = useCallback(async (file: File) => {
     setChangeRouteOpen(false);
@@ -237,7 +238,7 @@ export default function App() {
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRouteFile(f); }}
                     />
                   </label>
-                  {stravaToken ? (
+                  {!__GITHUB_PAGES__ && (stravaToken ? (
                     <button className="crp-option" onClick={() => { setChangeRouteOpen(false); setStravaModalOpen(true); }}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
@@ -253,7 +254,7 @@ export default function App() {
                       </svg>
                       Connect Strava
                     </button>
-                  )}
+                  ))}
                   <div className="crp-divider"/>
                   <button className="crp-option crp-danger" onClick={() => { setChangeRouteOpen(false); resetPlan(); }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -329,7 +330,7 @@ export default function App() {
         )
       )}
 
-      {stravaModalOpen && (
+      {!__GITHUB_PAGES__ && stravaModalOpen && (
         <div className="strava-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setStravaModalOpen(false); }}>
           <div className="strava-modal">
             <button className="strava-modal-close" onClick={() => setStravaModalOpen(false)} aria-label="Close">

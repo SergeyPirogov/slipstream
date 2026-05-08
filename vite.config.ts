@@ -6,6 +6,9 @@ const isGithubPages = process.env.GITHUB_ACTIONS === "true";
 export default defineConfig({
   plugins: [react()],
   base: isGithubPages ? "/slipstream/" : "/",
+  define: {
+    __GITHUB_PAGES__: JSON.stringify(isGithubPages),
+  },
   server: {
     port: 5173,
     host: "127.0.0.1",
