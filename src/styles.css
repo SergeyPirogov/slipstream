@@ -337,6 +337,33 @@ html, body, #root {
   flex-shrink: 0;
   color: var(--fg-dim);
 }
+.crp-option-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.crp-option--grow {
+  flex: 1;
+  width: auto;
+}
+.crp-remove-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.crp-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
 .crp-strava {
   color: #fc4c02;
 }

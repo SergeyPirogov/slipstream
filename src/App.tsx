@@ -200,29 +200,33 @@ export default function App() {
               {changeRidesOpen && (
                 <div className="change-route-popover">
                   <div className="crp-title">{bothLoaded ? "Change rides" : "Manage ride"}</div>
-                  <label className="crp-option" htmlFor="crp-rider-a">
-                    <span className="dot dot-a" />
-                    Replace {trackA!.rider || "Rider A"}
-                    <input id="crp-rider-a" type="file" accept=".gpx,.fit" style={{ display: "none" }}
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("A", f); }} />
-                  </label>
-                  {bothLoaded && (
-                    <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); clearTrack("A"); }}>
-                      <TrashIcon /> Remove {trackA!.rider || "Rider A"}
-                    </button>
-                  )}
+                  <div className="crp-option-row">
+                    <label className="crp-option crp-option--grow" htmlFor="crp-rider-a">
+                      <span className="dot dot-a" />
+                      Replace {trackA!.rider || "Rider A"}
+                      <input id="crp-rider-a" type="file" accept=".gpx,.fit" style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("A", f); }} />
+                    </label>
+                    {bothLoaded && (
+                      <button className="crp-remove-btn" title={`Remove ${trackA!.rider || "Rider A"}`}
+                        onClick={(e) => { e.stopPropagation(); setChangeRidesOpen(false); clearTrack("A"); }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    )}
+                  </div>
                   {bothLoaded ? (
-                    <>
-                      <label className="crp-option" htmlFor="crp-rider-b">
+                    <div className="crp-option-row">
+                      <label className="crp-option crp-option--grow" htmlFor="crp-rider-b">
                         <span className="dot dot-b" />
                         Replace {trackB!.rider || "Rider B"}
                         <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
                           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
                       </label>
-                      <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); clearTrack("B"); }}>
-                        <TrashIcon /> Remove {trackB!.rider || "Rider B"}
+                      <button className="crp-remove-btn" title={`Remove ${trackB!.rider || "Rider B"}`}
+                        onClick={(e) => { e.stopPropagation(); setChangeRidesOpen(false); clearTrack("B"); }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>
-                    </>
+                    </div>
                   ) : (
                     <label className="crp-option" htmlFor="crp-rider-b-add">
                       <span className="dot dot-b" />
