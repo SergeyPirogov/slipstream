@@ -15,6 +15,7 @@ import { RoutePlannerMap } from "./components/RoutePlannerView";
 import { RoutePlannerStats } from "./components/RoutePlannerStats";
 import { RouteElevationChart } from "./components/RouteElevationChart";
 import { StravaPanel } from "./components/StravaPanel";
+import { KomootPanel } from "./components/KomootPanel";
 import { useStore } from "./store";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { parseGpxFile } from "./gpx/parse";
@@ -42,6 +43,7 @@ export default function App() {
   const [changeRidesOpen, setChangeRidesOpen] = useState(false);
   const routeLoading = useStore((s) => s.plan.routeLoading);
   const [stravaModalOpen, setStravaModalOpen] = useState(false);
+  const [komootModalOpen, setKomootModalOpen] = useState(false);
   const changeRouteRef = useRef<HTMLDivElement>(null);
   const changeRidesRef = useRef<HTMLDivElement>(null);
 
@@ -252,19 +254,25 @@ export default function App() {
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRouteFile(f); }}
                     />
                   </label>
+                  <button className="crp-option" onClick={() => { setChangeRouteOpen(false); setKomootModalOpen(true); }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="11" fill="#6AA800"/>
+                      <path d="M7 17L12 7l5 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="13" r="2" fill="white"/>
+                    </svg>
+                    Paste Komoot link
+                  </button>
                   {!__GITHUB_PAGES__ && (stravaToken ? (
                     <button className="crp-option" onClick={() => { setChangeRouteOpen(false); setStravaModalOpen(true); }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-                        <line x1="4" y1="22" x2="4" y2="15"/>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="#FC4C02" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116zM9.2 6.708l2.09 4.116h3.065L9.2 0 4.051 10.172h3.066l2.083-4.116z" />
                       </svg>
                       Browse Strava routes
                     </button>
                   ) : (
-                    <button className="crp-option crp-strava" onClick={() => { setChangeRouteOpen(false); startOAuth(); }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-                        <line x1="4" y1="22" x2="4" y2="15"/>
+                    <button className="crp-option" onClick={() => { setChangeRouteOpen(false); startOAuth(); }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="#FC4C02" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116zM9.2 6.708l2.09 4.116h3.065L9.2 0 4.051 10.172h3.066l2.083-4.116z" />
                       </svg>
                       Connect Strava
                     </button>
@@ -342,6 +350,23 @@ export default function App() {
         ) : (
           <CompareEmptyState />
         )
+      )}
+
+      {komootModalOpen && (
+        <div className="strava-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setKomootModalOpen(false); }}>
+          <div className="strava-modal">
+            <button className="strava-modal-close" onClick={() => setKomootModalOpen(false)} aria-label="Close">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <KomootPanel
+              onLoadStart={() => setPlanRouteLoading(true)}
+              onRouteLoaded={() => setKomootModalOpen(false)}
+              onLoadError={() => setPlanRouteLoading(false)}
+            />
+          </div>
+        </div>
       )}
 
       {!__GITHUB_PAGES__ && stravaModalOpen && (
