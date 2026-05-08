@@ -10,20 +10,34 @@ import { ElevationChart } from "./components/Analytics/ElevationChart";
 import { HeartRateChart } from "./components/Analytics/HeartRateChart";
 import { SplitsTable } from "./components/Analytics/SplitsTable";
 import { RiderNameEditor } from "./components/RiderNameEditor";
+import { RoutePlannerMap } from "./components/RoutePlannerView";
+import { RoutePlannerStats } from "./components/RoutePlannerStats";
+import { RouteElevationChart } from "./components/RouteElevationChart";
 import { useStore } from "./store";
 import { useState } from "react";
 
 export default function App() {
+  const appMode = useStore((s) => s.appMode);
+  const setAppMode = useStore((s) => s.setAppMode);
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
+  const planRoute = useStore((s) => s.plan.route);
   const clearTrack = useStore((s) => s.clearTrack);
+  const clearRoute = useStore((s) => s.clearRoute);
   const bothLoaded = !!trackA && !!trackB;
+  const planLoaded = appMode === "plan" && !!planRoute;
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const showLanding = appMode === "compare" ? !bothLoaded : !planLoaded;
 
   const resetComparison = () => {
     clearTrack("A");
     clearTrack("B");
     setSettingsOpen(false);
+  };
+
+  const resetPlan = () => {
+    clearRoute();
   };
 
   return (
@@ -43,7 +57,26 @@ export default function App() {
           </svg>
           <span>Support</span>
         </a>
-        {bothLoaded && (
+
+        {/* Mode switcher in header (only when nothing loaded) */}
+        {showLanding && (
+          <div className="header-mode-switcher">
+            <button
+              className={`mode-btn mode-btn--sm ${appMode === "compare" ? "active" : ""}`}
+              onClick={() => setAppMode("compare")}
+            >
+              Compare
+            </button>
+            <button
+              className={`mode-btn mode-btn--sm ${appMode === "plan" ? "active" : ""}`}
+              onClick={() => setAppMode("plan")}
+            >
+              Plan
+            </button>
+          </div>
+        )}
+
+        {bothLoaded && appMode === "compare" && (
           <>
             <div className="legend" style={{ marginLeft: "auto" }}>
               <span><span className="dot a" /><RiderNameEditor slot="A" /></span>
@@ -73,10 +106,41 @@ export default function App() {
             </button>
           </>
         )}
+
+        {planLoaded && (
+          <>
+            <div className="legend" style={{ marginLeft: "auto" }}>
+              <span style={{ color: "var(--fg-dim)", fontSize: 13 }}>{planRoute!.name || "Route"}</span>
+            </div>
+            <button
+              className="header-icon-btn"
+              onClick={resetPlan}
+              title="Load a different route"
+              aria-label="New route"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-3-6.7" />
+                <path d="M21 4v5h-5" />
+              </svg>
+            </button>
+          </>
+        )}
       </header>
 
-      {!bothLoaded ? (
+      {showLanding ? (
         <FileLoader />
+      ) : appMode === "plan" ? (
+        <div className="main">
+          <div className="map-pane plan-map-pane">
+            <RoutePlannerMap />
+            <div className="elevation-strip">
+              <RouteElevationChart />
+            </div>
+          </div>
+          <aside className="side">
+            <RoutePlannerStats />
+          </aside>
+        </div>
       ) : (
         <>
           <div className="main">

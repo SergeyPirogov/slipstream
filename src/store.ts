@@ -4,13 +4,45 @@ import { analyze } from "./gpx/analyze";
 import type { ParsedGpx } from "./gpx/parse";
 import type { SyncMode } from "./gpx/align";
 import { maxValueForMode, startOffsetSec, findCommonStart, findCommonEnd } from "./gpx/align";
+import type { HourlyWind, RouteWindAnalysis, RideWeatherSummary } from "./gpx/routeWind";
+import { analyzeRouteWind, buildRideWeatherSummary, fetchHourlyWind } from "./gpx/routeWind";
+
+export type AppMode = "compare" | "plan";
 
 export type Slot = "A" | "B";
 
-
 type RawEntry = { parsed: ParsedGpx; filename: string };
 
+export type PlanState = {
+  route: Track | null;
+  rawRoute: RawEntry | null;
+  /** ISO date string yyyy-mm-dd */
+  departureDate: string;
+  /** Local hour 0-23 */
+  departureHour: number;
+  /** Estimated avg speed for ETAs and wind timing */
+  avgSpeedKmh: number;
+  hourlyWind: HourlyWind | null;
+  windAnalysis: RouteWindAnalysis | null;
+  weatherSummary: RideWeatherSummary | null;
+  windLoading: boolean;
+  /** km from start currently hovered on elevation chart, null when not hovering */
+  hoverKm: number | null;
+};
+
 type State = {
+  appMode: AppMode;
+  plan: PlanState;
+
+  setAppMode: (m: AppMode) => void;
+  loadRoute: (parsed: ParsedGpx, filename: string) => void;
+  clearRoute: () => void;
+  setPlanDepartureDate: (d: string) => void;
+  setPlanDepartureHour: (h: number) => void;
+  setPlanAvgSpeed: (s: number) => void;
+  fetchPlanWind: () => void;
+  setPlanHoverKm: (km: number | null) => void;
+
   trackA: Track | null;
   trackB: Track | null;
   rawA: RawEntry | null;
@@ -57,7 +89,95 @@ function maybeAutofillOffset(
   return { offsetSec: s.offsetSec };
 }
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 export const useStore = create<State>((set, get) => ({
+  appMode: "compare",
+  plan: {
+    route: null,
+    rawRoute: null,
+    departureDate: todayIso(),
+    departureHour: 8,
+    avgSpeedKmh: 28,
+    hourlyWind: null,
+    windAnalysis: null,
+    weatherSummary: null,
+    windLoading: false,
+    hoverKm: null,
+  },
+
+  setAppMode: (m) => set({ appMode: m }),
+
+  loadRoute: (parsed, filename) => {
+    const track = analyze(parsed, filename, 0);
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        route: track,
+        rawRoute: { parsed, filename },
+        hourlyWind: null,
+        windAnalysis: null,
+        weatherSummary: null,
+      },
+    }));
+    setTimeout(() => get().fetchPlanWind(), 0);
+  },
+
+  clearRoute: () =>
+    set((s) => ({
+      plan: { ...s.plan, route: null, rawRoute: null, hourlyWind: null, windAnalysis: null, weatherSummary: null },
+    })),
+
+  setPlanDepartureDate: (d) => {
+    set((s) => ({ plan: { ...s.plan, departureDate: d, windAnalysis: null, weatherSummary: null } }));
+    setTimeout(() => get().fetchPlanWind(), 0);
+  },
+
+  setPlanDepartureHour: (h) => {
+    set((s) => {
+      const plan = s.plan;
+      if (!plan.hourlyWind || !plan.route) return { plan: { ...plan, departureHour: h } };
+      const departureMs = new Date(plan.departureDate + "T" + String(h).padStart(2, "0") + ":00:00Z").getTime();
+      const windAnalysis = analyzeRouteWind(plan.route.points, plan.hourlyWind, departureMs, plan.avgSpeedKmh);
+      const weatherSummary = buildRideWeatherSummary(plan.hourlyWind, departureMs, windAnalysis.estDurationSec);
+      return { plan: { ...plan, departureHour: h, windAnalysis, weatherSummary } };
+    });
+  },
+
+  setPlanAvgSpeed: (s) => {
+    set((state) => {
+      const plan = state.plan;
+      const newPlan = { ...plan, avgSpeedKmh: s };
+      if (plan.hourlyWind && plan.route) {
+        const departureMs = new Date(plan.departureDate + "T" + String(plan.departureHour).padStart(2, "0") + ":00:00Z").getTime();
+        newPlan.windAnalysis = analyzeRouteWind(plan.route.points, plan.hourlyWind, departureMs, s);
+        newPlan.weatherSummary = buildRideWeatherSummary(plan.hourlyWind, departureMs, newPlan.windAnalysis.estDurationSec);
+      }
+      return { plan: newPlan };
+    });
+  },
+
+  fetchPlanWind: async () => {
+    const { plan } = get();
+    if (!plan.route || plan.route.points.length === 0) return;
+    set((s) => ({ plan: { ...s.plan, windLoading: true } }));
+    try {
+      const mid = plan.route.points[Math.floor(plan.route.points.length / 2)];
+      const hw = await fetchHourlyWind(mid.lat, mid.lon, plan.departureDate);
+      if (!hw) { set((s) => ({ plan: { ...s.plan, windLoading: false } })); return; }
+      const departureMs = new Date(
+        plan.departureDate + "T" + String(plan.departureHour).padStart(2, "0") + ":00:00Z",
+      ).getTime();
+      const windAnalysis = analyzeRouteWind(plan.route.points, hw, departureMs, plan.avgSpeedKmh);
+      const weatherSummary = buildRideWeatherSummary(hw, departureMs, windAnalysis.estDurationSec);
+      set((s) => ({ plan: { ...s.plan, hourlyWind: hw, windAnalysis, weatherSummary, windLoading: false } }));
+    } catch {
+      set((s) => ({ plan: { ...s.plan, windLoading: false } }));
+    }
+  },
+
+  setPlanHoverKm: (km) => set((s) => ({ plan: { ...s.plan, hoverKm: km } })),
+
   trackA: null,
   trackB: null,
   rawA: null,

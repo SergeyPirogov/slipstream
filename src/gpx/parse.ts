@@ -64,12 +64,11 @@ export function parseGpx(xml: string): ParsedGpx {
       const lon = Number(tp.lon);
       if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
       const timeStr = tp.time;
-      if (!timeStr) continue;
-      const t = new Date(timeStr);
-      if (Number.isNaN(t.getTime())) continue;
+      const t = timeStr ? new Date(timeStr) : null;
+      if (t && Number.isNaN(t.getTime())) continue;
       const ele = tp.ele !== undefined ? Number(tp.ele) : 0;
       const ext = extractExtensions(tp.extensions);
-      points.push({ lat, lon, ele, t, ...ext });
+      points.push({ lat, lon, ele, t: t ?? new Date(points.length * 1000), ...ext });
     }
   }
 

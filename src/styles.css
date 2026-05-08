@@ -51,6 +51,9 @@ html, body, #root {
   min-width: 0;
   min-height: 0;
 }
+.plan-map-pane {
+  grid-template-rows: 1fr auto;
+}
 
 .map-pane > :first-child {
   min-height: 0;
@@ -961,3 +964,377 @@ select {
 .weather-card .weather-detail { display: flex; flex-direction: column; }
 .weather-card .weather-value { font-size: 13px; font-weight: 600; }
 .weather-card .weather-label { font-size: 10px; color: var(--fg-dim); margin-top: 1px; }
+
+/* ---------- Mode switcher (landing page) ---------- */
+.mode-switcher {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 20px 0 0;
+}
+.mode-btn {
+  background: var(--bg-elev);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 22px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.mode-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
+.mode-btn.active {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border-color: var(--fg-dim);
+  font-weight: 600;
+}
+.mode-btn--sm {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.header-mode-switcher {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* Plan hero gradient */
+.grad-plan {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Single drop zone (plan mode) */
+.hero-drops--single {
+  grid-template-columns: 1fr;
+  max-width: 400px;
+}
+.drop-plan {
+  border-top-color: var(--accent);
+}
+.dot-plan { background: var(--accent) !important; }
+.drop-plan.dragging { border-color: var(--accent); background: rgba(34, 197, 94, 0.10); }
+
+/* ---------- Route planner map ---------- */
+.plan-map-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.plan-map {
+  width: 100%;
+  height: 100%;
+  background: #1a1f28;
+}
+.plan-map .leaflet-container { cursor: grab; }
+.plan-map .leaflet-dragging .leaflet-container,
+.plan-map .leaflet-dragging * { cursor: grabbing !important; }
+
+.plan-loading {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 36, 50, 0.9);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  z-index: 500;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+/* Legend overlay (bottom-left of map) */
+.map-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 500;
+  background: rgba(30, 36, 50, 0.82);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  display: flex;
+  gap: 10px;
+}
+.ml-tail { color: #4ade80; }
+.ml-cross { color: #a0a8b0; }
+.ml-head { color: #f87171; }
+
+
+/* ---------- Route planner stats sidebar ---------- */
+.plan-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
+.dep-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.dep-date-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dep-quick-dates {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.dep-quick-btn {
+  background: var(--bg-elev-2);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+.dep-quick-btn:hover {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border-color: #4b5563;
+}
+.dep-quick-btn.active {
+  background: rgba(34,197,94,0.15);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.dep-date-input {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.dep-date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.dep-date-display {
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-top: 5px;
+}
+
+.dep-hour-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+}
+.dep-hour-btn {
+  background: var(--bg-elev-2);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 0;
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.dep-hour-btn:hover {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border-color: #4b5563;
+}
+.dep-hour-btn.active {
+  background: rgba(34,197,94,0.15);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.dep-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dep-speed-slider {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.dep-speed-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dep-speed-num {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 46px;
+  text-align: center;
+}
+.dep-speed-num:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.dep-speed-unit {
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
+/* Wind progress bar */
+.wind-bar-wrap { margin-bottom: 8px; }
+.wind-bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  background: var(--bg-elev-2);
+}
+.wb-head { background: #ef4444; }
+.wb-cross { background: #6b7280; }
+.wb-tail { background: #22c55e; }
+.wind-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.wbl-head { color: #f87171; }
+.wbl-tail { color: #4ade80; }
+
+.plan-wc-label {
+  font-size: 12px;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.route-elev-panel {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+  padding: 10px 12px 8px;
+}
+
+.delta-pos { color: var(--accent); }
+.delta-neg { color: #ef4444; }
+
+/* ---------- Weather summary panel ---------- */
+.ws-loading {
+  font-size: 12px;
+  color: var(--fg-dim);
+  padding: 4px 0;
+}
+
+.ws-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.ws-headline-emoji { font-size: 20px; line-height: 1; }
+.ws-temp-range {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Three-column timeline (start / mid / finish) */
+.ws-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.ws-col {
+  background: var(--bg-elev-2);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+}
+.ws-col-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.ws-emoji { font-size: 22px; line-height: 1.2; }
+.ws-temp { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ws-feels { font-size: 10px; color: var(--fg-dim); }
+.ws-wind {
+  font-size: 10px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+}
+.ws-gust { font-size: 10px; color: #f59e0b; }
+.ws-precip { font-size: 10px; color: #60a5fa; }
+
+/* Summary stats below the columns */
+.ws-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.ws-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+.ws-stat-label { color: var(--fg-dim); }
+.ws-stat-value { font-variant-numeric: tabular-nums; }
+.ws-precip-warn { color: #60a5fa; }
+
+/* UV index colours */
+.uv-low   { color: #22c55e; }
+.uv-mod   { color: #facc15; }
+.uv-high  { color: #f97316; }
+.uv-vhigh { color: #ef4444; }
+.uv-extreme { color: #a855f7; font-weight: 600; }
