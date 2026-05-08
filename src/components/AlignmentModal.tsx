@@ -26,7 +26,9 @@ export function AlignmentModal() {
   const rawB = useStore((s) => s.rawB);
   const offsetSec = useStore((s) => s.offsetSec);
   const alignmentConfirmed = useStore((s) => s.alignmentConfirmed);
+  const alignmentPreviouslyConfirmed = useStore((s) => s.alignmentPreviouslyConfirmed);
   const confirmAlignment = useStore((s) => s.confirmAlignment);
+  const cancelAlignment = useStore((s) => s.cancelAlignment);
 
   // Track whether this pair of tracks ever needed alignment. Once it did, we stay
   // visible (even as the user's fixes flip checks to green) until they click Continue.
@@ -138,7 +140,16 @@ export function AlignmentModal() {
     <div className="alignment-modal-backdrop">
       <div className="alignment-modal">
         <div className="alignment-modal-header">
-          <h2>Align tracks</h2>
+          <div className="alignment-modal-title-row">
+            <h2>Align tracks</h2>
+            {alignmentPreviouslyConfirmed && (
+              <button className="alignment-modal-cancel" onClick={cancelAlignment} title="Cancel">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/>
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="sub">
             Review the checks below and fix any issues before comparing. Use the TZ dropdowns to correct head-unit clock offsets, then trim both tracks to the shared segment.
           </div>

@@ -1,21 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { useStore, useMaxValue } from "../store";
 import { buildSyncArrays, positionAtValue, queryValues } from "../gpx/align";
 
 const COLOR_A = "#f97316";
 const COLOR_B = "#3b82f6";
-
-// Tether offsets (in screen pixels). A label stays on the left, B on the right.
-const TETHER_DX_A = 140;
-const TETHER_DX_B = -140;
-const TETHER_DY = 0;
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
-  }[c] as string));
-}
 
 type Stats = { speedKmh: number; hr?: number; power?: number };
 
@@ -68,49 +57,6 @@ function positionGapOverlay(
   setTextIfChanged(el.querySelector(".gap-overlay-text"), text);
 }
 
-function positionTetheredLabel(
-  labelEl: HTMLDivElement | null,
-  leaderEl: SVGLineElement | null,
-  anchor: { x: number; y: number },
-  name: string,
-  stats: Stats | null,
-  dx: number,
-  dy: number,
-) {
-  if (!labelEl || !leaderEl) return;
-  const lx = anchor.x + dx;
-  const ly = anchor.y + dy;
-  labelEl.style.transform = `translate(${lx}px, ${ly}px) translate(-50%, -50%)`;
-  labelEl.style.display = "";
-  leaderEl.style.display = "";
-  setTextIfChanged(labelEl.querySelector(".tether-name"), name);
-  if (stats) {
-    setTextIfChanged(labelEl.querySelector(".tether-speed"), `${stats.speedKmh.toFixed(1)} km/h`);
-    const hrEl = labelEl.querySelector(".tether-hr") as HTMLElement | null;
-    if (hrEl) {
-      if (stats.hr !== undefined) {
-        setTextIfChanged(hrEl, `${Math.round(stats.hr)} bpm`);
-        hrEl.style.display = "";
-      } else {
-        hrEl.style.display = "none";
-      }
-    }
-    const powerEl = labelEl.querySelector(".tether-power") as HTMLElement | null;
-    if (powerEl) {
-      if (stats.power !== undefined) {
-        setTextIfChanged(powerEl, `${Math.round(stats.power)} W`);
-        powerEl.style.display = "";
-      } else {
-        powerEl.style.display = "none";
-      }
-    }
-  }
-  leaderEl.setAttribute("x1", String(anchor.x));
-  leaderEl.setAttribute("y1", String(anchor.y));
-  leaderEl.setAttribute("x2", String(lx));
-  leaderEl.setAttribute("y2", String(ly));
-}
-
 function degToCardinal(deg: number): string {
   const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   return dirs[Math.round(deg / 45) % 8];
@@ -148,15 +94,13 @@ export function MapFlyover() {
   const segBRef = useRef<L.Polyline | null>(null);
   const markerARef = useRef<L.Marker | null>(null);
   const markerBRef = useRef<L.Marker | null>(null);
-  const labelARef = useRef<HTMLDivElement | null>(null);
-  const labelBRef = useRef<HTMLDivElement | null>(null);
-  const leaderSvgRef = useRef<SVGSVGElement | null>(null);
-  const leaderARef = useRef<SVGLineElement | null>(null);
-  const leaderBRef = useRef<SVGLineElement | null>(null);
   const gapOverlayRef = useRef<HTMLDivElement | null>(null);
   const gapLabelTextRef = useRef<string>("");
   const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
   const windArrowsRef = useRef<L.Marker[]>([]);
+
+  const [liveA, setLiveA] = useState<Stats | null>(null);
+  const [liveB, setLiveB] = useState<Stats | null>(null);
 
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
@@ -507,7 +451,6 @@ export function MapFlyover() {
     const statsA: Stats = { speedKmh: posA.speedKmh, hr: posA.hr, power: posA.power3s ?? posA.power };
 
     markerARef.current?.setLatLng([posA.lat, posA.lon]);
-    positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA.rider, statsA, -Math.abs(TETHER_DX_A), TETHER_DY);
 
     if (trackB && syncB) {
       const arrB = syncMode === "time" ? syncB.time : syncB.distance;
@@ -522,8 +465,8 @@ export function MapFlyover() {
 
       markerARef.current?.setLatLng([posA2.lat, posA2.lon]);
       markerBRef.current?.setLatLng([posB.lat, posB.lon]);
-      positionTetheredLabel(labelARef.current, leaderARef.current, pxA2, trackA.rider, { ...statsA, speedKmh: aFinished ? 0 : posA2.speedKmh }, -Math.abs(TETHER_DX_A), TETHER_DY);
-      positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB.rider, statsB, Math.abs(TETHER_DX_B), TETHER_DY);
+      setLiveA({ ...statsA, speedKmh: aFinished ? 0 : posA2.speedKmh });
+      setLiveB(statsB);
 
       const refDist = Math.max(0, Math.min(posA2.distFromStart, posB.distFromStart, syncA.distance[syncA.distance.length - 1], syncB.distance[syncB.distance.length - 1]));
       const dPosA = positionAtValue(trackA, syncA.distance, refDist);
@@ -543,14 +486,13 @@ export function MapFlyover() {
       }
     } else {
       if (gapOverlayRef.current) gapOverlayRef.current.style.display = "none";
-      if (labelBRef.current) labelBRef.current.style.display = "none";
-      if (leaderBRef.current) leaderBRef.current.style.display = "none";
+      setLiveA(statsA);
+      setLiveB(null);
       if (playing) map.panTo([posA.lat, posA.lon], { animate: true, duration: 0.3 });
     }
   }, [progress, syncMode, maxValue, trackA, trackB, syncA, syncB, playing, offsetSec]);
 
-  // Keep tethered labels + leader lines anchored during map pan/zoom (these fire outside
-  // the animation effect). We reuse each marker's current LatLng, no position lookup.
+  // Keep gap overlay anchored during map pan/zoom.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -558,13 +500,8 @@ export function MapFlyover() {
       const mA = markerARef.current;
       const mB = markerBRef.current;
       if (!mA || !mB) return;
-      const latA = mA.getLatLng();
-      const latB = mB.getLatLng();
-      const pxA = map.latLngToContainerPoint(latA);
-      const pxB = map.latLngToContainerPoint(latB);
-      const absDx = Math.abs(TETHER_DX_A);
-      positionTetheredLabel(labelARef.current, leaderARef.current, pxA, trackA?.rider ?? "", null, -absDx, TETHER_DY);
-      positionTetheredLabel(labelBRef.current, leaderBRef.current, pxB, trackB?.rider ?? "", null, absDx, TETHER_DY);
+      const pxA = map.latLngToContainerPoint(mA.getLatLng());
+      const pxB = map.latLngToContainerPoint(mB.getLatLng());
       positionGapOverlay(gapOverlayRef.current, pxA, pxB, gapLabelTextRef.current, gapTintRef.current);
     };
     map.on("move zoom", handler);
@@ -575,41 +512,44 @@ export function MapFlyover() {
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={containerRef} id="map" style={{ width: "100%", height: "100%" }} />
 
-      <svg ref={leaderSvgRef} className="tether-svg">
-        <line ref={leaderARef} className="tether-leader tether-leader-a" stroke={COLOR_A} />
-        <line ref={leaderBRef} className="tether-leader tether-leader-b" stroke={COLOR_B} />
-      </svg>
-
       <div ref={gapOverlayRef} className="gap-overlay-label">
         <span className="gap-overlay-text">—</span>
       </div>
 
-      <div ref={labelARef} className="tether-label tether-label-a" style={{ borderColor: COLOR_A }}>
-        <span className="tether-dot" style={{ background: COLOR_A }} />
-        <div className="tether-lines">
-          <span className="tether-name">—</span>
-          <span className="tether-stats">
-            <span className="tether-speed">—</span>
-            <span className="tether-hr">—</span>
-            <span className="tether-power">—</span>
-          </span>
+      {(liveA || liveB) && (trackA || trackB) && (
+        <div className="map-live-panel">
+          {trackA && liveA && (
+            <div className="map-live-row">
+              <span className="map-live-dot" style={{ background: COLOR_A }} />
+              <div className="map-live-info">
+                <span className="map-live-name">{trackA.rider}</span>
+                <span className="map-live-stats">
+                  <span>{liveA.speedKmh.toFixed(1)} km/h</span>
+                  {liveA.hr !== undefined && <span>{Math.round(liveA.hr)} bpm</span>}
+                  {liveA.power !== undefined && <span>{Math.round(liveA.power)} W</span>}
+                </span>
+              </div>
+            </div>
+          )}
+          {trackB && liveB && (
+            <div className="map-live-row">
+              <span className="map-live-dot" style={{ background: COLOR_B }} />
+              <div className="map-live-info">
+                <span className="map-live-name">{trackB.rider}</span>
+                <span className="map-live-stats">
+                  <span>{liveB.speedKmh.toFixed(1)} km/h</span>
+                  {liveB.hr !== undefined && <span>{Math.round(liveB.hr)} bpm</span>}
+                  {liveB.power !== undefined && <span>{Math.round(liveB.power)} W</span>}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      <div ref={labelBRef} className="tether-label tether-label-b" style={{ borderColor: COLOR_B }}>
-        <span className="tether-dot" style={{ background: COLOR_B }} />
-        <div className="tether-lines">
-          <span className="tether-name">—</span>
-          <span className="tether-stats">
-            <span className="tether-speed">—</span>
-            <span className="tether-hr">—</span>
-            <span className="tether-power">—</span>
-          </span>
-        </div>
-      </div>
+      )}
 
       {wind && (
         <div style={{
-          position: "absolute", bottom: 32, left: 10, zIndex: 1000,
+          position: "absolute", bottom: 28, left: 10, zIndex: 1000,
           background: "rgba(30,36,50,0.62)", border: "1px solid rgba(255,255,255,0.15)",
           borderRadius: 8, padding: "7px 11px",
           display: "flex", flexDirection: "column", gap: 5,

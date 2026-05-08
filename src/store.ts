@@ -18,6 +18,15 @@ const STORAGE_KEY_APP_MODE = "slipstream_app_mode";
 
 type RawEntry = { parsed: ParsedGpx; filename: string };
 
+export type StagedFile = {
+  id: number;
+  name: string;
+  rider: string;
+  parsed: ParsedGpx;
+  distanceM: number;
+  durationSec: number;
+};
+
 export type PlanState = {
   route: Track | null;
   rawRoute: RawEntry | null;
@@ -74,10 +83,19 @@ type State = {
   commonStartScanKm: number;
   wind: { speedKmh: number; directionDeg: number; tempC?: number; weatherCode?: number } | null;
 
+  stagedFiles: StagedFile[];
+  stagedSlotA: number | null;
+  stagedSlotB: number | null;
+
+  addStagedFiles: (files: StagedFile[]) => void;
+  removeStagedFile: (id: number) => void;
+  assignStagedSlot: (slot: "A" | "B", id: number) => void;
   loadTrack: (slot: Slot, parsed: ParsedGpx, filename: string) => void;
   clearTrack: (slot: Slot) => void;
   clearAllTracks: () => void;
   startAnalysis: () => void;
+  swapTracks: () => void;
+  reassignSlot: (slot: "A" | "B", id: number) => void;
   setRiderName: (slot: Slot, name: string) => void;
   setTzOffsetHours: (slot: Slot, hours: number) => void;
   setSyncMode: (mode: SyncMode) => void;
@@ -90,8 +108,11 @@ type State = {
   autoDetectOffset: () => void;
   trimHeadStart: () => void;
   trimToCommonStart: () => void;
+  alignmentPreviouslyConfirmed: boolean;
+  alignmentSnapshot: { trackA: State["trackA"]; rawA: State["rawA"]; trackB: State["trackB"]; rawB: State["rawB"]; offsetSec: number; stagedSlotA: number | null; stagedSlotB: number | null } | null;
   confirmAlignment: () => void;
   reopenAlignment: () => void;
+  cancelAlignment: () => void;
   setSegmentM: (start: number, end: number) => void;
   clearSegmentM: () => void;
   setCommonStartScanKm: (km: number) => void;
@@ -223,6 +244,34 @@ export const useStore = create<State>((set, get) => ({
 
   setPlanHoverKm: (km) => set((s) => ({ plan: { ...s.plan, hoverKm: km } })),
 
+  stagedFiles: [],
+  stagedSlotA: null,
+  stagedSlotB: null,
+
+  addStagedFiles: (incoming) =>
+    set((s) => {
+      const next = [...s.stagedFiles, ...incoming];
+      // Auto-assign first two slots if not yet assigned
+      const slotA = s.stagedSlotA ?? (next[0]?.id ?? null);
+      const slotB = s.stagedSlotB ?? (next[1]?.id ?? null);
+      return { stagedFiles: next, stagedSlotA: slotA, stagedSlotB: slotB };
+    }),
+
+  removeStagedFile: (id) =>
+    set((s) => ({
+      stagedFiles: s.stagedFiles.filter((f) => f.id !== id),
+      stagedSlotA: s.stagedSlotA === id ? null : s.stagedSlotA,
+      stagedSlotB: s.stagedSlotB === id ? null : s.stagedSlotB,
+    })),
+
+  assignStagedSlot: (slot, id) =>
+    set((s) => {
+      if (slot === "A") {
+        return { stagedSlotA: s.stagedSlotA === id ? null : id, stagedSlotB: s.stagedSlotB === id ? null : s.stagedSlotB };
+      }
+      return { stagedSlotB: s.stagedSlotB === id ? null : id, stagedSlotA: s.stagedSlotA === id ? null : s.stagedSlotA };
+    }),
+
   trackA: null,
   trackB: null,
   rawA: null,
@@ -234,6 +283,8 @@ export const useStore = create<State>((set, get) => ({
   offsetSec: 0,
   offsetTouched: false,
   alignmentConfirmed: false,
+  alignmentPreviouslyConfirmed: false,
+  alignmentSnapshot: null,
   analysisStarted: false,
   segmentM: null,
   commonStartScanKm: 20,
@@ -243,8 +294,8 @@ export const useStore = create<State>((set, get) => ({
     set((s) => {
       const track = analyze(parsed, filename, 0);
       const next: State = slot === "A"
-        ? { ...s, trackA: track, rawA: { parsed, filename }, alignmentConfirmed: false, wind: null }
-        : { ...s, trackB: track, rawB: { parsed, filename }, alignmentConfirmed: false };
+        ? { ...s, trackA: track, rawA: { parsed, filename }, alignmentConfirmed: false, alignmentPreviouslyConfirmed: false, wind: null }
+        : { ...s, trackB: track, rawB: { parsed, filename }, alignmentConfirmed: false, alignmentPreviouslyConfirmed: false };
       return { ...next, ...maybeAutofillOffset(next) };
     });
     // Only fetch wind from track A (it provides location + date).
@@ -263,10 +314,59 @@ export const useStore = create<State>((set, get) => ({
   },
 
   clearAllTracks: () => {
-    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, analysisStarted: false, offsetSec: 0, offsetTouched: false, segmentM: null, wind: null }));
+    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, alignmentPreviouslyConfirmed: false, analysisStarted: false, offsetSec: 0, offsetTouched: false, segmentM: null, wind: null, stagedFiles: [], stagedSlotA: null, stagedSlotB: null }));
   },
 
-  startAnalysis: () => set({ analysisStarted: true }),
+  startAnalysis: () => {
+    set((s) => {
+      const fileA = s.stagedFiles.find((f) => f.id === s.stagedSlotA);
+      const fileB = s.stagedFiles.find((f) => f.id === s.stagedSlotB);
+      if (!fileA) return { analysisStarted: true };
+      const trackA = analyze(fileA.parsed, fileA.name, 0);
+      const trackB = fileB ? analyze(fileB.parsed, fileB.name, 0) : null;
+      const next = {
+        ...s,
+        trackA, rawA: { parsed: fileA.parsed, filename: fileA.name },
+        trackB, rawB: fileB ? { parsed: fileB.parsed, filename: fileB.name } : null,
+        alignmentConfirmed: false, alignmentPreviouslyConfirmed: false, analysisStarted: true,
+      };
+      return { ...next, ...maybeAutofillOffset(next) };
+    });
+    setTimeout(() => get().fetchWind(), 0);
+  },
+
+  swapTracks: () =>
+    set((s) => {
+      if (!s.trackA || !s.trackB) return s;
+      return {
+        ...s,
+        trackA: s.trackB, rawA: s.rawB,
+        trackB: s.trackA, rawB: s.rawA,
+        stagedSlotA: s.stagedSlotB, stagedSlotB: s.stagedSlotA,
+        offsetSec: -s.offsetSec,
+        progress: 0,
+        playing: false,
+      };
+    }),
+
+  reassignSlot: (slot, id) =>
+    set((s) => {
+      const file = s.stagedFiles.find((f) => f.id === id);
+      if (!file) return s;
+      const track = analyze(file.parsed, file.name, 0);
+      const raw = { parsed: file.parsed, filename: file.name };
+      // Snapshot before first change so cancel can fully restore
+      const snapshot = s.alignmentSnapshot ?? (s.alignmentPreviouslyConfirmed
+        ? { trackA: s.trackA, rawA: s.rawA, trackB: s.trackB, rawB: s.rawB, offsetSec: s.offsetSec, stagedSlotA: s.stagedSlotA, stagedSlotB: s.stagedSlotB }
+        : null);
+      // Assign to slot, clearing the id from the other slot if it was there
+      const finalSlotA = slot === "A" ? id : (s.stagedSlotA === id ? null : s.stagedSlotA);
+      const finalSlotB = slot === "B" ? id : (s.stagedSlotB === id ? null : s.stagedSlotB);
+      const next = slot === "A"
+        ? { ...s, trackA: track, rawA: raw, stagedSlotA: finalSlotA, stagedSlotB: finalSlotB, alignmentConfirmed: false, alignmentSnapshot: snapshot }
+        : { ...s, trackB: track, rawB: raw, stagedSlotA: finalSlotA, stagedSlotB: finalSlotB, alignmentConfirmed: false, alignmentSnapshot: snapshot };
+      return { ...next, ...maybeAutofillOffset(next) };
+    }),
 
   setRiderName: (slot, name) => {
     set((s) => {
@@ -381,8 +481,18 @@ export const useStore = create<State>((set, get) => ({
       };
     }),
 
-  confirmAlignment: () => set({ alignmentConfirmed: true }),
-  reopenAlignment: () => set({ alignmentConfirmed: false }),
+  confirmAlignment: () => set({ alignmentConfirmed: true, alignmentPreviouslyConfirmed: true, alignmentSnapshot: null }),
+  reopenAlignment: () =>
+    set((s) => ({
+      alignmentConfirmed: false,
+      alignmentSnapshot: { trackA: s.trackA, rawA: s.rawA, trackB: s.trackB, rawB: s.rawB, offsetSec: s.offsetSec, stagedSlotA: s.stagedSlotA, stagedSlotB: s.stagedSlotB },
+    })),
+  cancelAlignment: () =>
+    set((s) => {
+      if (!s.alignmentSnapshot) return { alignmentConfirmed: true };
+      const { trackA, rawA, trackB, rawB, offsetSec, stagedSlotA, stagedSlotB } = s.alignmentSnapshot;
+      return { alignmentConfirmed: true, alignmentSnapshot: null, trackA, rawA, trackB, rawB, offsetSec, stagedSlotA, stagedSlotB, offsetTouched: true };
+    }),
   setSegmentM: (start, end) => set({ segmentM: { start, end }, progress: 0, playing: false }),
   clearSegmentM: () => set({ segmentM: null, progress: 0, playing: false }),
   setCommonStartScanKm: (km) => set({ commonStartScanKm: Math.max(1, Math.round(km)) }),

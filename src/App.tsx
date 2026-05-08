@@ -20,7 +20,112 @@ import { useStore } from "./store";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { parseGpxFile } from "./gpx/parse";
 import { parseFitFile } from "./gpx/parseFit";
+import { analyze } from "./gpx/analyze";
 import { startOAuth, handleOAuthCallback } from "./strava/auth";
+
+function RiderPickerPopover({ onClose, onClearAll }: {
+  onClose: () => void;
+  onClearAll: () => void;
+}) {
+  const stagedFiles = useStore((s) => s.stagedFiles);
+  const stagedSlotA = useStore((s) => s.stagedSlotA);
+  const stagedSlotB = useStore((s) => s.stagedSlotB);
+  const assignStagedSlot = useStore((s) => s.assignStagedSlot);
+  const reassignSlot = useStore((s) => s.reassignSlot);
+  const removeStagedFile = useStore((s) => s.removeStagedFile);
+  const addStagedFiles = useStore((s) => s.addStagedFiles);
+  const clearTrack = useStore((s) => s.clearTrack);
+  const [adding, setAdding] = useState(false);
+
+  const assign = (slot: "A" | "B", id: number) => {
+    reassignSlot(slot, id);
+  };
+
+  const handleAddFile = useCallback(async (file: File) => {
+    setAdding(true);
+    try {
+      const isFit = /\.fit$/i.test(file.name);
+      const gpx = isFit ? await parseFitFile(file) : await parseGpxFile(file);
+      const track = analyze(gpx, file.name, 0);
+      addStagedFiles([{
+        id: Date.now(),
+        name: file.name,
+        rider: track.rider,
+        parsed: gpx,
+        distanceM: track.totals.distanceM,
+        durationSec: track.totals.durationSec,
+      }]);
+    } finally {
+      setAdding(false);
+    }
+  }, [addStagedFiles]);
+
+  return (
+    <div className="change-route-popover crp-rider-picker">
+      <div className="crp-title">Riders</div>
+
+      {stagedFiles.length > 0 && (
+        <div className="crp-file-list">
+          {stagedFiles.map((f) => {
+            const isA = stagedSlotA === f.id;
+            const isB = stagedSlotB === f.id;
+            return (
+              <div key={f.id} className={`ces-file-row${isA ? " ces-file-row--a" : isB ? " ces-file-row--b" : ""}`}>
+                <div className="ces-slot-btns">
+                  <button
+                    className={`ces-slot-btn ces-slot-btn--a${isA ? " active" : ""}`}
+                    onClick={() => assign("A", f.id)}
+                    disabled={isB}
+                    title={isB ? "Already selected as Rider B" : "Set as Rider A"}
+                  >A</button>
+                  <button
+                    className={`ces-slot-btn ces-slot-btn--b${isB ? " active" : ""}`}
+                    onClick={() => assign("B", f.id)}
+                    disabled={isA}
+                    title={isA ? "Already selected as Rider A" : "Set as Rider B"}
+                  >B</button>
+                </div>
+                <div className="ces-file-info">
+                  <span className="ces-file-name">{f.rider}</span>
+                </div>
+                <button
+                  className="ces-remove-btn"
+                  onClick={() => { removeStagedFile(f.id); if (isA) clearTrack("A"); if (isB) clearTrack("B"); }}
+                  title="Remove"
+                >
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/>
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <label className="crp-add-file-btn" htmlFor="crp-add-file">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        {adding ? "Parsing…" : "Add file"}
+        <input
+          id="crp-add-file"
+          type="file"
+          accept=".gpx,.fit,application/gpx+xml,application/xml,text/xml,application/octet-stream"
+          style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAddFile(f); }}
+        />
+      </label>
+
+      <div className="crp-divider" />
+      <button className="crp-option crp-danger" onClick={onClearAll}>
+        <TrashIcon /> Delete all
+      </button>
+    </div>
+  );
+}
 
 function TrashIcon() {
   return (
@@ -50,6 +155,7 @@ export default function App() {
   const bothLoaded = !!trackA && !!trackB;
   const planLoaded = !!planRoute;
   const reopenAlignment = useStore((s) => s.reopenAlignment);
+  const swapTracks = useStore((s) => s.swapTracks);
   const [changeRouteOpen, setChangeRouteOpen] = useState(false);
   const [changeRidesOpen, setChangeRidesOpen] = useState(false);
   const routeLoading = useStore((s) => s.plan.routeLoading);
@@ -168,7 +274,11 @@ export default function App() {
                 <div className="compare-pill-riders">
                   <span className="dot dot-a" />
                   <RiderNameEditor slot="A" readonly />
-                  <span className="compare-pill-vs">vs</span>
+                  <button className="swap-btn" onClick={swapTracks} title="Swap riders">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
+                    </svg>
+                  </button>
                   <span className="dot dot-b" />
                   <RiderNameEditor slot="B" readonly />
                 </div>
@@ -199,48 +309,10 @@ export default function App() {
                 </button>
               )}
               {changeRidesOpen && (
-                <div className="change-route-popover">
-                  <div className="crp-title">{bothLoaded ? "Change rides" : "Manage ride"}</div>
-                  <div className="crp-option-row">
-                    <label className="crp-option crp-option--grow" htmlFor="crp-rider-a">
-                      <span className="dot dot-a" />
-                      Replace {trackA!.rider || "Rider A"}
-                      <input id="crp-rider-a" type="file" accept=".gpx,.fit" style={{ display: "none" }}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("A", f); }} />
-                    </label>
-                    {bothLoaded && (
-                      <button className="crp-remove-btn" title={`Remove ${trackA!.rider || "Rider A"}`}
-                        onClick={(e) => { e.stopPropagation(); setChangeRidesOpen(false); clearTrack("A"); }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    )}
-                  </div>
-                  {bothLoaded ? (
-                    <div className="crp-option-row">
-                      <label className="crp-option crp-option--grow" htmlFor="crp-rider-b">
-                        <span className="dot dot-b" />
-                        Replace {trackB!.rider || "Rider B"}
-                        <input id="crp-rider-b" type="file" accept=".gpx,.fit" style={{ display: "none" }}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
-                      </label>
-                      <button className="crp-remove-btn" title={`Remove ${trackB!.rider || "Rider B"}`}
-                        onClick={(e) => { e.stopPropagation(); setChangeRidesOpen(false); clearTrack("B"); }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="crp-option" htmlFor="crp-rider-b-add">
-                      <span className="dot dot-b" />
-                      Add second rider to compare
-                      <input id="crp-rider-b-add" type="file" accept=".gpx,.fit" style={{ display: "none" }}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRiderFile("B", f); }} />
-                    </label>
-                  )}
-                  <div className="crp-divider" />
-                  <button className="crp-option crp-danger" onClick={() => { setChangeRidesOpen(false); resetComparison(); }}>
-                    <TrashIcon /> Clear all
-                  </button>
-                </div>
+                <RiderPickerPopover
+                  onClose={() => setChangeRidesOpen(false)}
+                  onClearAll={() => { setChangeRidesOpen(false); resetComparison(); }}
+                />
               )}
             </div>
           )}
