@@ -1084,6 +1084,18 @@ html, body, #root {
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
   font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+}
+.snap-chip-reason {
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.7;
+  font-variant-numeric: normal;
+  white-space: nowrap;
 }
 .snap-chip:hover:not(:disabled) {
   background: color-mix(in srgb, var(--chip-color) 20%, transparent);

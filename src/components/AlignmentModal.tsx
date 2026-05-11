@@ -55,55 +55,84 @@ function nearestDistFromGrid(grid: Map<string, Track["points"]>, lat: number, lo
 // For start candidates: scan all of A against B's first `windowM` metres.
 // For end candidates:   scan all of A against B's last  `windowM` metres.
 // Returns the top `count` A-track km values closest to each B boundary region.
+// Find the single A-track km closest to a set of B points (represented as a grid).
+// Returns { km, distM } for the best match.
+function bestMatchOnA(aPts: Track["points"], grid: Map<string, Track["points"]>): { km: number; distM: number } {
+  let best = { km: 0, distM: Infinity };
+  for (const p of aPts) {
+    const d = nearestDistFromGrid(grid, p.lat, p.lon);
+    if (d < best.distM) best = { km: p.distFromStart / 1000, distM: d };
+  }
+  return best;
+}
+
+export type SnapCandidate = { km: number; distM: number; reason: string };
+
 function findAllSnapCandidates(
   trackA: Track,
   trackB: Track,
   windowM = 1000,
-): { startCandidates: number[]; endCandidates: number[] } {
+): { startCandidates: SnapCandidate[]; endCandidates: SnapCandidate[] } {
   const aPts = trackA.points;
+  const bPts = trackB.points;
   const bTotalM = trackB.totals.distanceM;
 
-  const bStart = trackB.points.filter((p) => p.distFromStart <= windowM);
-  const bEnd   = trackB.points.filter((p) => p.distFromStart >= bTotalM - windowM);
+  const bStart = bPts.filter((p) => p.distFromStart <= windowM);
+  const bEnd   = bPts.filter((p) => p.distFromStart >= bTotalM - windowM);
 
-  const gridStart = buildGrid(bStart);
-  const gridEnd   = buildGrid(bEnd);
+  const gridAFull  = buildGrid(aPts);
+  const gridBStart = buildGrid(bStart);
+  const gridBEnd   = buildGrid(bEnd);
 
-  // Best geographic match overall, then the one closest to km 0 / km max
-  let bestStartByDist = { km: 0, distM: Infinity };
-  let bestStartByKm   = { km: Infinity, distM: Infinity }; // smallest km that's within 2× best dist
-  let bestEndByDist   = { km: 0, distM: Infinity };
-  let bestEndByKm     = { km: -Infinity, distM: Infinity }; // largest km that's within 2× best dist
+  // A→B: which A km is closest to B's boundary region?
+  const aTowardsBStart = bestMatchOnA(aPts, gridBStart);
+  const aTowardsBEnd   = bestMatchOnA(aPts, gridBEnd);
 
-  for (const p of aPts) {
-    const km = p.distFromStart / 1000;
-    const ds = nearestDistFromGrid(gridStart, p.lat, p.lon);
-    const de = nearestDistFromGrid(gridEnd,   p.lat, p.lon);
-    if (ds < bestStartByDist.distM) bestStartByDist = { km, distM: ds };
-    if (de < bestEndByDist.distM)   bestEndByDist   = { km, distM: de };
-  }
+  // B→A: find B boundary point closest to full A, project to nearest A km
+  const bWindowToA = (bWindow: Track["points"]): { km: number; distM: number } => {
+    let bestBPt: Track["points"][0] | null = null;
+    let bestD = Infinity;
+    for (const p of bWindow) {
+      const d = nearestDistFromGrid(gridAFull, p.lat, p.lon);
+      if (d < bestD) { bestD = d; bestBPt = p; }
+    }
+    if (!bestBPt) return { km: 0, distM: Infinity };
+    return bestMatchOnA(aPts, buildGrid([bestBPt]));
+  };
 
-  // Second pass: find the A point closest to km 0 (smallest km) that is still
-  // geographically reasonable (within 2× the best geographic match distance)
-  const startThresh = bestStartByDist.distM * 2 + 50;
-  const endThresh   = bestEndByDist.distM   * 2 + 50;
-  for (const p of aPts) {
-    const km = p.distFromStart / 1000;
-    const ds = nearestDistFromGrid(gridStart, p.lat, p.lon);
-    const de = nearestDistFromGrid(gridEnd,   p.lat, p.lon);
-    if (ds <= startThresh && km < bestStartByKm.km) bestStartByKm = { km, distM: ds };
-    if (de <= endThresh   && km > bestEndByKm.km)   bestEndByKm   = { km, distM: de };
-  }
+  const bStartOnA = bWindowToA(bStart);
+  const bEndOnA   = bWindowToA(bEnd);
 
-  // Deduplicate: if both candidates are within 0.1 km of each other, keep only the best
-  const dedup = (a: { km: number }, b: { km: number }, preferA: boolean): number[] => {
-    if (Math.abs(a.km - b.km) < 0.1) return [preferA ? a.km : b.km];
-    return [a.km, b.km].sort((x, y) => x - y);
+  const fmtGeo = (d: number) => d < 1000 ? `${Math.round(d)} m apart` : `${(d / 1000).toFixed(1)} km apart`;
+
+  // Pick best from both directions; label each with why it was chosen
+  const pickTwo = (
+    cAB: { km: number; distM: number },
+    cBA: { km: number; distM: number },
+    reasonAB: string,
+    reasonBA: string,
+  ): SnapCandidate[] => {
+    const better: SnapCandidate = cAB.distM <= cBA.distM
+      ? { ...cAB, reason: `${reasonAB} · ${fmtGeo(cAB.distM)}` }
+      : { ...cBA, reason: `${reasonBA} · ${fmtGeo(cBA.distM)}` };
+    const other: SnapCandidate = cAB.distM <= cBA.distM
+      ? { ...cBA, reason: `${reasonBA} · ${fmtGeo(cBA.distM)}` }
+      : { ...cAB, reason: `${reasonAB} · ${fmtGeo(cAB.distM)}` };
+    if (Math.abs(better.km - other.km) < 0.1) return [better];
+    return [better, other].sort((a, b) => a.km - b.km);
   };
 
   return {
-    startCandidates: dedup(bestStartByDist, bestStartByKm, true),
-    endCandidates:   dedup(bestEndByDist,   bestEndByKm,   false),
+    startCandidates: pickTwo(
+      aTowardsBStart, bStartOnA,
+      "closest A point to B's start",
+      "closest B start point projected onto A",
+    ),
+    endCandidates: pickTwo(
+      aTowardsBEnd, bEndOnA,
+      "closest A point to B's finish",
+      "closest B finish point projected onto A",
+    ),
   };
 }
 
@@ -179,9 +208,9 @@ function SnapChips({
 }: {
   label: string;
   color: string;
-  candidates: number[];
-  activeKm: number | null;  // currently committed km for this edge
-  endKm: number | null;     // the other edge (to prevent crossing)
+  candidates: SnapCandidate[];
+  activeKm: number | null;
+  endKm: number | null;
   isStart: boolean;
   onSnap: (km: number) => void;
 }) {
@@ -190,20 +219,20 @@ function SnapChips({
     <div className="snap-row">
       <span className="snap-row-label" style={{ color }}>{label}</span>
       <div className="snap-chips">
-        {candidates.map((km) => {
-          const isActive = activeKm !== null && Math.abs(km - activeKm) < 0.05;
-          // Prevent crossing: start chip must stay before end edge, end chip after start edge
-          const invalid = endKm !== null && (isStart ? km >= endKm - 0.1 : km <= endKm + 0.1);
+        {candidates.map((c) => {
+          const isActive = activeKm !== null && Math.abs(c.km - activeKm) < 0.05;
+          const invalid = endKm !== null && (isStart ? c.km >= endKm - 0.1 : c.km <= endKm + 0.1);
           return (
             <button
-              key={km}
+              key={c.km}
               disabled={invalid}
-              onClick={() => onSnap(km)}
+              onClick={() => onSnap(c.km)}
               className={`snap-chip${isActive ? " active" : ""}`}
               style={{ "--chip-color": color } as React.CSSProperties}
-              title={invalid ? "Would overlap with the other edge" : `Snap to ${km.toFixed(1)} km`}
+              title={invalid ? "Would overlap with the other edge" : c.reason}
             >
-              {km.toFixed(1)} km
+              {c.km.toFixed(1)} km
+              <span className="snap-chip-reason">{c.reason}</span>
             </button>
           );
         })}
@@ -331,7 +360,7 @@ function SegmentElevationChart({
   const isDragging = dragStart !== null;
 
   // Global snap candidates — computed async so the chart renders first
-  const [snapCandidates, setSnapCandidates] = useState<{ startCandidates: number[]; endCandidates: number[] } | null>(null);
+  const [snapCandidates, setSnapCandidates] = useState<{ startCandidates: SnapCandidate[]; endCandidates: SnapCandidate[] } | null>(null);
   useEffect(() => {
     setSnapCandidates(null);
     const id = setTimeout(() => setSnapCandidates(findAllSnapCandidates(trackA, trackB)), 0);
@@ -430,11 +459,11 @@ function SegmentElevationChart({
   };
 
   const handleSnapStart = (km: number) => {
-    const end = committedEndKm ?? (endCandidates[endCandidates.length - 1] ?? km + 1);
+    const end = committedEndKm ?? (endCandidates[endCandidates.length - 1]?.km ?? km + 1);
     if (km < end) onSegmentChange(km, end);
   };
   const handleSnapEnd = (km: number) => {
-    const start = committedStartKm ?? (startCandidates[0] ?? km - 1);
+    const start = committedStartKm ?? (startCandidates[0]?.km ?? km - 1);
     if (km > start) onSegmentChange(start, km);
   };
 
@@ -522,11 +551,11 @@ function SegmentElevationChart({
               <ReferenceArea x1={liveLeft} x2={liveRight} fill="#22c55e" fillOpacity={0.15} stroke="#22c55e" strokeOpacity={0.5} strokeDasharray="4 3" />
             )}
             {/* Candidate snap lines — shown when no committed edge for that side */}
-            {!isDragging && committedStartKm === null && startCandidates.map((km) => (
-              <ReferenceLine key={`sc-${km}`} x={km} stroke="#22c55e" strokeWidth={1} strokeDasharray="3 4" strokeOpacity={0.5} />
+            {!isDragging && committedStartKm === null && startCandidates.map((c) => (
+              <ReferenceLine key={`sc-${c.km}`} x={c.km} stroke="#22c55e" strokeWidth={1} strokeDasharray="3 4" strokeOpacity={0.5} />
             ))}
-            {!isDragging && committedEndKm === null && endCandidates.map((km) => (
-              <ReferenceLine key={`ec-${km}`} x={km} stroke="#ef4444" strokeWidth={1} strokeDasharray="3 4" strokeOpacity={0.5} />
+            {!isDragging && committedEndKm === null && endCandidates.map((c) => (
+              <ReferenceLine key={`ec-${c.km}`} x={c.km} stroke="#ef4444" strokeWidth={1} strokeDasharray="3 4" strokeOpacity={0.5} />
             ))}
           </ComposedChart>
         </ResponsiveContainer>
