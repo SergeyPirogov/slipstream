@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceArea, ReferenceLine, Tooltip } from "recharts";
 import { useStore } from "../store";
 import { startOffsetSec, findCommonStart, findCommonEnd, findSegmentWindow } from "../gpx/align";
@@ -319,11 +319,16 @@ function SegmentElevationChart({
   const hasCommitted = segPinStart !== null && segPinEnd !== null;
   const isDragging = dragStart !== null;
 
-  // Global snap candidates — computed once per track pair, shown immediately
-  const { startCandidates, endCandidates } = useMemo(
-    () => findAllSnapCandidates(trackA, trackB),
-    [trackA, trackB],
-  );
+  // Global snap candidates — computed async so the chart renders first
+  const [snapCandidates, setSnapCandidates] = useState<{ startCandidates: number[]; endCandidates: number[] } | null>(null);
+  useEffect(() => {
+    setSnapCandidates(null);
+    const id = setTimeout(() => setSnapCandidates(findAllSnapCandidates(trackA, trackB)), 0);
+    return () => clearTimeout(id);
+  }, [trackA, trackB]);
+  const startCandidates = snapCandidates?.startCandidates ?? [];
+  const endCandidates   = snapCandidates?.endCandidates   ?? [];
+  const snapLoading = snapCandidates === null;
 
   // X-axis ticks scaled to the actual track length
   const xTicks = useMemo(() => {
@@ -548,32 +553,39 @@ function SegmentElevationChart({
       })()}
 
       {/* Snap candidates — always shown so user can pick before dragging */}
-      {(startCandidates.length > 0 || endCandidates.length > 0) && (
-        <div className="snap-panel">
-          <div className="snap-panel-title">
-            Best shared points
-            <span className="snap-panel-hint">where both tracks pass near each other</span>
-          </div>
-          <SnapChips
-            label="Start"
-            color="#22c55e"
-            candidates={startCandidates}
-            activeKm={committedStartKm}
-            endKm={committedEndKm}
-            isStart={true}
-            onSnap={handleSnapStart}
-          />
-          <SnapChips
-            label="End"
-            color="#ef4444"
-            candidates={endCandidates}
-            activeKm={committedEndKm}
-            endKm={committedStartKm}
-            isStart={false}
-            onSnap={handleSnapEnd}
-          />
+      <div className="snap-panel">
+        <div className="snap-panel-title">
+          Best shared points
+          <span className="snap-panel-hint">where both tracks pass near each other</span>
         </div>
-      )}
+        {snapLoading ? (
+          <div className="snap-loading">
+            <span className="snap-spinner" />
+            Calculating…
+          </div>
+        ) : (
+          <>
+            <SnapChips
+              label="Start"
+              color="#22c55e"
+              candidates={startCandidates}
+              activeKm={committedStartKm}
+              endKm={committedEndKm}
+              isStart={true}
+              onSnap={handleSnapStart}
+            />
+            <SnapChips
+              label="End"
+              color="#ef4444"
+              candidates={endCandidates}
+              activeKm={committedEndKm}
+              endKm={committedStartKm}
+              isStart={false}
+              onSnap={handleSnapEnd}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
