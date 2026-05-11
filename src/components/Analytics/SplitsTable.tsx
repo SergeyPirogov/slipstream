@@ -60,23 +60,17 @@ export function SplitsTable() {
     const aEndElapsed = elapsedAtKm(trackA, km) ?? 0;
     const aPrevElapsed = elapsedAtKm(trackA, prevKm) ?? 0;
     const aDurReal = aEndElapsed - aPrevElapsed;
-    let aDur = aDurReal;
 
     const bEndElapsed = trackB ? (elapsedAtKm(trackB, km) ?? 0) : null;
     const bPrevElapsed = trackB ? (elapsedAtKm(trackB, prevKm) ?? 0) : null;
     const bDurReal = bEndElapsed !== null && bPrevElapsed !== null ? bEndElapsed - bPrevElapsed : null;
-    let bDur = bDurReal;
-
-    if (i === 0 && trackB) {
-      if (offsetSec > 0) aDur = Math.max(0, aDurReal - offsetSec);
-      else if (offsetSec < 0 && bDur !== null && bDurReal !== null) bDur = Math.max(0, bDurReal + offsetSec);
-    }
+    const bDur = bDurReal;
 
     const aPwr = avgPowerBetweenKm(trackA, prevKm, km);
     const bPwr = trackB ? avgPowerBetweenKm(trackB, prevKm, km) : null;
     return {
       km,
-      aDur,
+      aDur: aDurReal,
       bDur,
       aSpd: aDurReal > 0 ? (segKm / aDurReal) * 3600 : 0,
       bSpd: bDurReal !== null && bDurReal > 0 ? (segKm / bDurReal) * 3600 : null,
