@@ -172,7 +172,7 @@ function detectClimbs(
   return climbs;
 }
 
-function computeSplits(points: TrackPoint[], splitKm = 10): Split[] {
+function computeSplits(points: TrackPoint[], splitKm = 5): Split[] {
   const splits: Split[] = [];
   let nextTarget = splitKm * 1000;
   let lastIdx = 0;

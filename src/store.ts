@@ -3,7 +3,7 @@ import type { Track } from "./gpx/analyze";
 import { analyze } from "./gpx/analyze";
 import type { ParsedGpx } from "./gpx/parse";
 import type { SyncMode } from "./gpx/align";
-import { maxValueForMode, startOffsetSec, findCommonStart, findCommonEnd } from "./gpx/align";
+import { maxValueForMode, startOffsetSec, findCommonStart, findCommonEnd, findSegmentWindow } from "./gpx/align";
 import type { HourlyWind, RouteWindAnalysis, RideWeatherSummary } from "./gpx/routeWind";
 import { analyzeRouteWind, buildRideWeatherSummary, fetchHourlyWind } from "./gpx/routeWind";
 import type { StravaToken } from "./strava/auth";
@@ -81,6 +81,8 @@ type State = {
   analysisStarted: boolean;
   segmentM: { start: number; end: number } | null;
   commonStartScanKm: number;
+  segPinStart: { lat: number; lon: number } | null;
+  segPinEnd: { lat: number; lon: number } | null;
   wind: { speedKmh: number; directionDeg: number; tempC?: number; weatherCode?: number } | null;
 
   stagedFiles: StagedFile[];
@@ -108,6 +110,7 @@ type State = {
   autoDetectOffset: () => void;
   trimHeadStart: () => void;
   trimToCommonStart: () => void;
+  trimToSegment: (segStartLat: number, segStartLon: number, segEndLat: number, segEndLon: number) => void;
   alignmentPreviouslyConfirmed: boolean;
   alignmentSnapshot: { trackA: State["trackA"]; rawA: State["rawA"]; trackB: State["trackB"]; rawB: State["rawB"]; offsetSec: number; stagedSlotA: number | null; stagedSlotB: number | null } | null;
   confirmAlignment: () => void;
@@ -116,6 +119,8 @@ type State = {
   setSegmentM: (start: number, end: number) => void;
   clearSegmentM: () => void;
   setCommonStartScanKm: (km: number) => void;
+  setSegmentPinsFromKm: (startKm: number, endKm: number) => void;
+  clearSegPins: () => void;
   fetchWind: () => void;
 };
 
@@ -288,6 +293,8 @@ export const useStore = create<State>((set, get) => ({
   analysisStarted: false,
   segmentM: null,
   commonStartScanKm: 20,
+  segPinStart: null,
+  segPinEnd: null,
   wind: null,
 
   loadTrack: (slot, parsed, filename) => {
@@ -314,7 +321,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   clearAllTracks: () => {
-    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, alignmentPreviouslyConfirmed: false, analysisStarted: false, offsetSec: 0, offsetTouched: false, segmentM: null, wind: null, stagedFiles: [], stagedSlotA: null, stagedSlotB: null }));
+    set((s) => ({ ...s, trackA: null, rawA: null, trackB: null, rawB: null, alignmentConfirmed: false, alignmentPreviouslyConfirmed: false, analysisStarted: false, offsetSec: 0, offsetTouched: false, segmentM: null, segPinStart: null, segPinEnd: null, wind: null, stagedFiles: [], stagedSlotA: null, stagedSlotB: null }));
   },
 
   startAnalysis: () => {
@@ -488,6 +495,43 @@ export const useStore = create<State>((set, get) => ({
       };
     }),
 
+  trimToSegment: (segStartLat, segStartLon, segEndLat, segEndLon) =>
+    set((s) => {
+      if (!s.trackA || !s.trackB || !s.rawA || !s.rawB) return s;
+      const winA = findSegmentWindow(s.trackA, segStartLat, segStartLon, segEndLat, segEndLon);
+      const winB = findSegmentWindow(s.trackB, segStartLat, segStartLon, segEndLat, segEndLon);
+      if (!winA || !winB) return s;
+
+      const trimTrack = (
+        raw: { parsed: ParsedGpx; filename: string },
+        track: Track,
+        startDistM: number,
+        endDistM: number,
+      ) => {
+        const idx0 = track.points.findIndex((p) => p.distFromStart >= startDistM);
+        let idx1 = track.points.findIndex((p) => p.distFromStart > endDistM);
+        if (idx1 < 0) idx1 = track.points.length;
+        const points = raw.parsed.points.slice(Math.max(0, idx0), idx1);
+        if (points.length < 2) return { raw, track };
+        const trimmedParsed = { ...raw.parsed, points };
+        const rebuilt = analyze(trimmedParsed, raw.filename, track.tzOffsetHours);
+        if (track.rider) rebuilt.rider = track.rider;
+        return { raw: { parsed: trimmedParsed, filename: raw.filename }, track: rebuilt };
+      };
+
+      const resA = trimTrack(s.rawA, s.trackA, winA.entryDistM, winA.exitDistM);
+      const resB = trimTrack(s.rawB, s.trackB, winB.entryDistM, winB.exitDistM);
+
+      const offsetSec = 0;
+
+      return {
+        ...s,
+        trackA: resA.track, rawA: resA.raw,
+        trackB: resB.track, rawB: resB.raw,
+        offsetSec, offsetTouched: true, progress: 0, playing: false,
+      };
+    }),
+
   confirmAlignment: () => set({ alignmentConfirmed: true, alignmentPreviouslyConfirmed: true, alignmentSnapshot: null }),
   reopenAlignment: () =>
     set((s) => ({
@@ -503,6 +547,25 @@ export const useStore = create<State>((set, get) => ({
   setSegmentM: (start, end) => set({ segmentM: { start, end }, progress: 0, playing: false }),
   clearSegmentM: () => set({ segmentM: null, progress: 0, playing: false }),
   setCommonStartScanKm: (km) => set({ commonStartScanKm: Math.max(1, Math.round(km)) }),
+
+  setSegmentPinsFromKm: (startKm, endKm) =>
+    set((s) => {
+      const track = s.trackA ?? s.trackB;
+      if (!track) return s;
+      const pinAt = (km: number) => {
+        const distM = km * 1000;
+        let best = track.points[0];
+        let bestD = Math.abs(best.distFromStart - distM);
+        for (const p of track.points) {
+          const d = Math.abs(p.distFromStart - distM);
+          if (d < bestD) { bestD = d; best = p; }
+        }
+        return { lat: best.lat, lon: best.lon };
+      };
+      return { segPinStart: pinAt(startKm), segPinEnd: pinAt(endKm) };
+    }),
+
+  clearSegPins: () => set({ segPinStart: null, segPinEnd: null }),
 
   fetchWind: async () => {
     const { trackA } = get();

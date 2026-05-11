@@ -45,7 +45,7 @@ export function SplitsTable() {
     : trackA.totals.distanceM / 1000;
   const segEndKm = segmentM ? segmentM.end / 1000 : maxDistKm;
   const limitKm = segEndKm;
-  const splitKm = segmentM ? Math.max(1, Math.round((segEndKm - segStartKm) / 5)) : 10;
+  const splitKm = segmentM ? Math.max(1, Math.round((segEndKm - segStartKm) / 5)) : 5;
 
   const boundaries: number[] = [];
   for (let k = segStartKm + splitKm; k <= Math.floor(limitKm * 10) / 10; k += splitKm) {
@@ -86,7 +86,7 @@ export function SplitsTable() {
 
   return (
     <div className="panel">
-      <h3>{segmentM ? `${splitKm} km splits · segment` : "10 km splits"}</h3>
+      <h3>{segmentM ? `${splitKm} km splits · segment` : "5 km splits"}</h3>
       <table className="splits-table">
         <thead>
           <tr>

@@ -96,6 +96,40 @@ export function findCommonEnd(a: Track, b: Track, thresholdM = 500): CommonEnd |
   };
 }
 
+export type SegmentWindow = {
+  entryDistM: number;
+  exitDistM: number;
+  entryElapsed: number;
+  exitElapsed: number;
+};
+
+// Find where a track passes through a user-defined segment (start → end lat/lon).
+// Scans all points for the closest to segStart, then searches forward for the closest to segEnd.
+export function findSegmentWindow(
+  track: Track,
+  segStartLat: number, segStartLon: number,
+  segEndLat: number,   segEndLon: number,
+  thresholdM = 500,
+): SegmentWindow | null {
+  let entryDist = Infinity, entryDistM = 0, entryElapsed = 0, entryIdx = 0;
+  for (let i = 0; i < track.points.length; i++) {
+    const p = track.points[i];
+    const d = haversineM(segStartLat, segStartLon, p.lat, p.lon);
+    if (d < entryDist) { entryDist = d; entryDistM = p.distFromStart; entryElapsed = p.elapsedSec; entryIdx = i; }
+  }
+  if (entryDist > thresholdM) return null;
+
+  let exitDist = Infinity, exitDistM = 0, exitElapsed = 0;
+  for (let i = entryIdx; i < track.points.length; i++) {
+    const p = track.points[i];
+    const d = haversineM(segEndLat, segEndLon, p.lat, p.lon);
+    if (d < exitDist) { exitDist = d; exitDistM = p.distFromStart; exitElapsed = p.elapsedSec; }
+  }
+  if (exitDist > thresholdM) return null;
+
+  return { entryDistM, exitDistM, entryElapsed, exitElapsed };
+}
+
 function binarySearch(values: number[], target: number): number {
   let lo = 0;
   let hi = values.length - 1;

@@ -850,6 +850,235 @@ html, body, #root {
   font-size: 12px;
   margin-bottom: 10px;
 }
+/* ── Segment elevation chart in alignment modal ─────────────────────────────── */
+.seg-chart-wrap {
+  margin-bottom: 12px;
+}
+/* Fine-tune sliders */
+.seg-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.seg-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.seg-slider-label {
+  font-size: 11px;
+  font-weight: 600;
+  width: 34px;
+  flex-shrink: 0;
+}
+.seg-slider {
+  flex: 1;
+  height: 4px;
+  cursor: pointer;
+  accent-color: currentColor;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 2px;
+  background: var(--bg-elev-2);
+  outline: none;
+}
+.seg-slider--start { accent-color: #22c55e; }
+.seg-slider--end   { accent-color: #ef4444; }
+.seg-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: var(--bg);
+  cursor: ew-resize;
+}
+.seg-slider--start::-webkit-slider-thumb { border-color: #22c55e; background: #22c55e22; }
+.seg-slider--end::-webkit-slider-thumb   { border-color: #ef4444; background: #ef444422; }
+.seg-slider-val {
+  font-size: 11px;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  width: 72px;
+  text-align: right;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.seg-slider-val--input {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  width: 72px;
+  text-align: right;
+  flex-shrink: 0;
+  -moz-appearance: textfield;
+}
+.seg-slider-val--input::-webkit-inner-spin-button,
+.seg-slider-val--input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.seg-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  min-height: 20px;
+}
+.seg-chart-label {
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-weight: 500;
+}
+.seg-chart-clear {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.seg-chart-clear:hover { color: var(--fg); border-color: var(--fg-dim); }
+.seg-chart-container {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.seg-chart-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  pointer-events: none;
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+}
+
+/* ── Segment stats card ────────────────────────────────────────────────────── */
+.seg-stats-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.seg-stats-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 12px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.seg-stats-label {
+  color: var(--fg-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.seg-stats-val {
+  color: var(--fg);
+  font-weight: 500;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.seg-stats-sep {
+  color: var(--fg-dim);
+  font-weight: 400;
+}
+.seg-stats-error {
+  font-size: 12px;
+  color: #ef4444;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Snap candidates panel ─────────────────────────────────────────────────── */
+.snap-panel {
+  margin-top: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.snap-panel-title {
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.snap-panel-hint {
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+.snap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.snap-row-label {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  width: 72px;
+  flex-shrink: 0;
+}
+.snap-chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.snap-chip {
+  padding: 3px 9px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--chip-color) 40%, transparent);
+  background: color-mix(in srgb, var(--chip-color) 8%, transparent);
+  color: color-mix(in srgb, var(--chip-color) 90%, var(--fg));
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  font-variant-numeric: tabular-nums;
+}
+.snap-chip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--chip-color) 20%, transparent);
+  border-color: color-mix(in srgb, var(--chip-color) 70%, transparent);
+}
+.snap-chip.active {
+  background: color-mix(in srgb, var(--chip-color) 25%, transparent);
+  border-color: var(--chip-color);
+  color: var(--chip-color);
+  font-weight: 700;
+}
+.snap-chip:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .align-step-actions {
   display: flex;
   gap: 8px;
