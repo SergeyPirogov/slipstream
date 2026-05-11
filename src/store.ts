@@ -473,11 +473,18 @@ export const useStore = create<State>((set, get) => ({
       const resA = trimTrack(s.rawA, s.trackA, startA, endA);
       const resB = trimTrack(s.rawB, s.trackB, startB, endB);
 
+      // Preserve the wall-clock gap between the two riders at the common start point.
+      // elapsedA/elapsedB are seconds each rider had ridden before reaching the common point;
+      // adding them to each track's UTC start gives the moment each rider was there.
+      const tA = s.trackA.points[0].t.getTime() + (cs?.elapsedA ?? 0) * 1000;
+      const tB = s.trackB.points[0].t.getTime() + (cs?.elapsedB ?? 0) * 1000;
+      const commonStartOffsetSec = Math.round((tB - tA) / 1000);
+
       return {
         ...s,
         trackA: resA.track, rawA: resA.raw,
         trackB: resB.track, rawB: resB.raw,
-        offsetSec: 0, offsetTouched: true, progress: 0, playing: false,
+        offsetSec: commonStartOffsetSec, offsetTouched: true, progress: 0, playing: false,
       };
     }),
 
