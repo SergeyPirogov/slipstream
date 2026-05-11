@@ -58,9 +58,7 @@ function nearestDistFromGrid(grid: Map<string, Track["points"]>, lat: number, lo
 function findAllSnapCandidates(
   trackA: Track,
   trackB: Track,
-  count = 3,
   windowM = 1000,
-  minGapKm = 0.01,
 ): { startCandidates: number[]; endCandidates: number[] } {
   const aPts = trackA.points;
   const bTotalM = trackB.totals.distanceM;
@@ -71,29 +69,42 @@ function findAllSnapCandidates(
   const gridStart = buildGrid(bStart);
   const gridEnd   = buildGrid(bEnd);
 
-  type Candidate = { km: number; distM: number };
-  const startPool: Candidate[] = [];
-  const endPool:   Candidate[] = [];
+  // Best geographic match overall, then the one closest to km 0 / km max
+  let bestStartByDist = { km: 0, distM: Infinity };
+  let bestStartByKm   = { km: Infinity, distM: Infinity }; // smallest km that's within 2× best dist
+  let bestEndByDist   = { km: 0, distM: Infinity };
+  let bestEndByKm     = { km: -Infinity, distM: Infinity }; // largest km that's within 2× best dist
 
   for (const p of aPts) {
     const km = p.distFromStart / 1000;
-    startPool.push({ km, distM: nearestDistFromGrid(gridStart, p.lat, p.lon) });
-    endPool.push(  { km, distM: nearestDistFromGrid(gridEnd,   p.lat, p.lon) });
+    const ds = nearestDistFromGrid(gridStart, p.lat, p.lon);
+    const de = nearestDistFromGrid(gridEnd,   p.lat, p.lon);
+    if (ds < bestStartByDist.distM) bestStartByDist = { km, distM: ds };
+    if (de < bestEndByDist.distM)   bestEndByDist   = { km, distM: de };
   }
 
-  const pick = (pool: Candidate[]): number[] => {
-    pool.sort((a, b) => a.distM - b.distM);
-    const picked: number[] = [];
-    for (const c of pool) {
-      if (picked.every((pk) => Math.abs(pk - c.km) >= minGapKm)) {
-        picked.push(c.km);
-        if (picked.length >= count) break;
-      }
-    }
-    return picked.sort((a, b) => a - b);
+  // Second pass: find the A point closest to km 0 (smallest km) that is still
+  // geographically reasonable (within 2× the best geographic match distance)
+  const startThresh = bestStartByDist.distM * 2 + 50;
+  const endThresh   = bestEndByDist.distM   * 2 + 50;
+  for (const p of aPts) {
+    const km = p.distFromStart / 1000;
+    const ds = nearestDistFromGrid(gridStart, p.lat, p.lon);
+    const de = nearestDistFromGrid(gridEnd,   p.lat, p.lon);
+    if (ds <= startThresh && km < bestStartByKm.km) bestStartByKm = { km, distM: ds };
+    if (de <= endThresh   && km > bestEndByKm.km)   bestEndByKm   = { km, distM: de };
+  }
+
+  // Deduplicate: if both candidates are within 0.1 km of each other, keep only the best
+  const dedup = (a: { km: number }, b: { km: number }, preferA: boolean): number[] => {
+    if (Math.abs(a.km - b.km) < 0.1) return [preferA ? a.km : b.km];
+    return [a.km, b.km].sort((x, y) => x - y);
   };
 
-  return { startCandidates: pick(startPool), endCandidates: pick(endPool) };
+  return {
+    startCandidates: dedup(bestStartByDist, bestStartByKm, true),
+    endCandidates:   dedup(bestEndByDist,   bestEndByKm,   false),
+  };
 }
 
 function fmtDist(m: number): string {
