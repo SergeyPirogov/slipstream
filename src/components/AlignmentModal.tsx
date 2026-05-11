@@ -187,7 +187,7 @@ export function AlignmentModal() {
 
   const absGap = Math.abs(gap);
   const hoursGuess = Math.round(gap / 3600);
-  const nearWholeHour = absGap >= 1800 && Math.abs(hoursGuess * 3600 - gap) < 600;
+  const nearWholeHour = absGap >= 1800 && Math.abs(hoursGuess * 3600 - gap) < 600 && Math.abs(hoursGuess) <= 12;
   const tzOk = !nearWholeHour;
   const gapOk = absGap <= 2;
   const totalA = trackA.totals.distanceM;
@@ -241,7 +241,7 @@ export function AlignmentModal() {
         })}
       </div>
       <div style={{ marginTop: 10, fontSize: 11, color: "var(--fg-dim)" }}>
-        Current gap: <span style={{ color: gapOk ? "var(--accent)" : "#f59e0b", fontWeight: 600 }}>{fmtSigned(gap)}</span>
+        Current gap: <span style={{ color: gapOk ? "var(--accent)" : nearWholeHour ? "#f59e0b" : "var(--fg-dim)", fontWeight: 600 }}>{fmtSigned(gap)}</span>
         {offsetSec !== 0 && <span> · manual offset: {fmtSigned(offsetSec)}</span>}
       </div>
       <div className="align-step-actions">

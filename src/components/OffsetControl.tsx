@@ -74,7 +74,7 @@ export function OffsetControl({ onContinue }: { onContinue?: () => void } = {}) 
 
   const absGap = Math.abs(realGap);
   const hoursGuess = Math.round(realGap / 3600);
-  const tzNotFixed = absGap >= 1800 && Math.abs(hoursGuess * 3600 - realGap) < 600;
+  const tzNotFixed = absGap >= 1800 && Math.abs(hoursGuess * 3600 - realGap) < 600 && Math.abs(hoursGuess) <= 12;
 
   const tzRow = (slot: "A" | "B", track: NonNullable<typeof trackA>) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
