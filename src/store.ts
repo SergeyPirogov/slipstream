@@ -473,11 +473,12 @@ export const useStore = create<State>((set, get) => ({
       const resA = trimTrack(s.rawA, s.trackA, startA, endA);
       const resB = trimTrack(s.rawB, s.trackB, startB, endB);
 
-      // Preserve the wall-clock gap between the two riders at the common start point.
-      // elapsedA/elapsedB are seconds each rider had ridden before reaching the common point;
-      // adding them to each track's UTC start gives the moment each rider was there.
-      const tA = s.trackA.points[0].t.getTime() + (cs?.elapsedA ?? 0) * 1000;
-      const tB = s.trackB.points[0].t.getTime() + (cs?.elapsedB ?? 0) * 1000;
+      // Use the actual first point of each trimmed track for the wall-clock gap.
+      // This is correct even when a rider stopped at the start line before beginning —
+      // the trimmed track's first point is the first GPS point after the trim distance,
+      // which lands after any stationary wait, giving the true start-line crossing time.
+      const tA = resA.track.points[0].t.getTime();
+      const tB = resB.track.points[0].t.getTime();
       const commonStartOffsetSec = Math.round((tB - tA) / 1000);
 
       return {
