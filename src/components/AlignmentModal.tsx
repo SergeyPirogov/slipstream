@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { useStore } from "../store";
 import { OffsetControl } from "./OffsetControl";
 import { startOffsetSec, findCommonStart, findCommonEnd } from "../gpx/align";
+import type { Track } from "../gpx/analyze";
 
 function fmtDist(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
@@ -15,6 +16,64 @@ function fmtGap(sec: number): string {
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
+}
+
+const COLOR_A = "#f97316";
+const COLOR_B = "#3b82f6";
+
+function subsample<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const step = arr.length / max;
+  return Array.from({ length: max }, (_, i) => arr[Math.floor(i * step)]);
+}
+
+function TrackMinimap({ trackA, trackB }: { trackA: Track; trackB: Track }) {
+  const W = 320, H = 180, PAD = 16;
+
+  const { polyA, polyB, startA, endA, startB, endB } = useMemo(() => {
+    const allPts = [...trackA.points, ...trackB.points];
+    const lats = allPts.map((p) => p.lat);
+    const lons = allPts.map((p) => p.lon);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+    const latRange = maxLat - minLat || 0.001;
+    const lonRange = maxLon - minLon || 0.001;
+    const scale = Math.min((W - PAD * 2) / lonRange, (H - PAD * 2) / latRange);
+    const toX = (lon: number) => PAD + (lon - minLon) * scale + ((W - PAD * 2) - lonRange * scale) / 2;
+    const toY = (lat: number) => H - PAD - (lat - minLat) * scale - ((H - PAD * 2) - latRange * scale) / 2;
+    const toPoly = (pts: Track["points"]) =>
+      subsample(pts, 300).map((p) => `${toX(p.lon).toFixed(1)},${toY(p.lat).toFixed(1)}`).join(" ");
+    return {
+      polyA: toPoly(trackA.points),
+      polyB: toPoly(trackB.points),
+      startA: { x: toX(trackA.points[0].lon), y: toY(trackA.points[0].lat) },
+      endA:   { x: toX(trackA.points[trackA.points.length - 1].lon), y: toY(trackA.points[trackA.points.length - 1].lat) },
+      startB: { x: toX(trackB.points[0].lon), y: toY(trackB.points[0].lat) },
+      endB:   { x: toX(trackB.points[trackB.points.length - 1].lon), y: toY(trackB.points[trackB.points.length - 1].lat) },
+    };
+  }, [trackA, trackB]);
+
+  const Pin = ({ x, y, color, label }: { x: number; y: number; color: string; label: string }) => (
+    <g>
+      <circle cx={x} cy={y} r={5} fill={color} stroke="#000" strokeWidth={1} opacity={0.9} />
+      <text x={x} y={y - 8} textAnchor="middle" fontSize={9} fill={color} stroke="var(--bg)" strokeWidth={2.5} paintOrder="stroke">{label}</text>
+    </g>
+  );
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      width={W} height={H}
+      style={{ display: "block", borderRadius: 6, background: "var(--bg-elev-1)", border: "1px solid var(--border)", maxWidth: "100%" }}
+    >
+      <polyline points={polyA} fill="none" stroke={COLOR_A} strokeWidth={1.8} strokeOpacity={0.85} strokeLinejoin="round" />
+      <polyline points={polyB} fill="none" stroke={COLOR_B} strokeWidth={1.8} strokeOpacity={0.85} strokeLinejoin="round" />
+      <Pin x={startA.x} y={startA.y} color={COLOR_A} label="A start" />
+      <Pin x={endA.x}   y={endA.y}   color={COLOR_A} label="A end" />
+      <Pin x={startB.x} y={startB.y} color={COLOR_B} label="B start" />
+      <Pin x={endB.x}   y={endB.y}   color={COLOR_B} label="B end" />
+    </svg>
+  );
 }
 
 type Check = { ok: boolean; note?: boolean; title: string; detail?: string };
@@ -178,6 +237,9 @@ export function AlignmentModal() {
               </li>
             ))}
           </ul>
+        </div>
+        <div style={{ padding: "0 16px 12px" }}>
+          <TrackMinimap trackA={trackA} trackB={trackB} />
         </div>
         <OffsetControl onContinue={confirmAlignment} />
         {!commonStart && (
