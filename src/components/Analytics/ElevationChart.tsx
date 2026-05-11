@@ -18,6 +18,7 @@ import { buildSeriesByDistance } from "./chartHelpers";
 export function ElevationChart() {
   const trackA = useStore((s) => s.trackA);
   const trackB = useStore((s) => s.trackB);
+  const planRoute = useStore((s) => s.plan.route);
   const syncMode = useStore((s) => s.syncMode);
   const progress = useStore((s) => s.progress);
   const segmentM = useStore((s) => s.segmentM);
@@ -29,10 +30,23 @@ export function ElevationChart() {
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const dragging = useRef(false);
 
-  const data = useMemo(
+  const baseData = useMemo(
     () => buildSeriesByDistance(trackA, trackB, (i, t) => t.points[i].ele),
     [trackA, trackB],
   );
+
+  const data = useMemo(() => {
+    if (!planRoute || planRoute.points.length === 0) return baseData;
+    const pts = planRoute.points;
+    const dists = pts.map((p) => p.distFromStart);
+    return baseData.map((row) => {
+      const m = row.km * 1000;
+      if (m > planRoute.totals.distanceM) return row;
+      let lo = 0, hi = dists.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (dists[mid] < m) lo = mid + 1; else hi = mid; }
+      return { ...row, plan: Math.round(pts[lo].ele) };
+    });
+  }, [baseData, planRoute]);
 
   const xTicks = useMemo(() => {
     if (!trackA) return undefined;
@@ -140,6 +154,7 @@ export function ElevationChart() {
           <Legend wrapperStyle={{ fontSize: 11 }} iconSize={8} />
           <Area name={trackA.rider} type="monotone" dataKey="a" stroke="#f97316" strokeWidth={1.5} fill="url(#eleFill)" isAnimationActive={false} />
           {trackB && <Line name={trackB.rider} type="monotone" dataKey="b" stroke="#3b82f6" dot={false} strokeWidth={1.2} isAnimationActive={false} />}
+          {planRoute && <Line name="Plan route" type="monotone" dataKey="plan" stroke="#22c55e" dot={false} strokeWidth={1.5} strokeDasharray="5 3" isAnimationActive={false} />}
           {trackA.climbs.map((c, i) => (
             <ReferenceArea
               key={`a-${i}`}
