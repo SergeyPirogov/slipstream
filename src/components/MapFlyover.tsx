@@ -347,7 +347,7 @@ export function MapFlyover() {
           opacity: 0.9,
         }).addTo(map);
       }
-      dirArrowsARef.current = addDirectionArrows(map, latlngs, COLOR_A);
+      dirArrowsARef.current = addDirectionArrows(map, latlngs, "#000");
       if (!markerARef.current) {
         markerARef.current = L.marker(latlngs[0], { icon: makeRiderIcon(COLOR_A) }).addTo(map);
       } else {
@@ -370,7 +370,7 @@ export function MapFlyover() {
           opacity: 0.9,
         }).addTo(map);
       }
-      dirArrowsBRef.current = addDirectionArrows(map, latlngs, COLOR_B);
+      dirArrowsBRef.current = addDirectionArrows(map, latlngs, "#000");
       if (!markerBRef.current) {
         markerBRef.current = L.marker(latlngs[0], { icon: makeRiderIcon(COLOR_B) }).addTo(map);
       } else {
