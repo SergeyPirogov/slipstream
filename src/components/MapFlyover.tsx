@@ -5,7 +5,7 @@ import { buildSyncArrays, positionAtValue, queryValues } from "../gpx/align";
 import { addDirectionArrows } from "./mapUtils";
 
 const COLOR_A = "#f97316";
-const COLOR_B = "#000";
+const COLOR_B = "#4c1d95";
 
 type Stats = { speedKmh: number; hr?: number; power?: number };
 
@@ -347,7 +347,7 @@ export function MapFlyover() {
           opacity: 0.9,
         }).addTo(map);
       }
-      dirArrowsARef.current = addDirectionArrows(map, latlngs, "#000");
+      dirArrowsARef.current = addDirectionArrows(map, latlngs, "#4c1d95");
       if (!markerARef.current) {
         markerARef.current = L.marker(latlngs[0], { icon: makeRiderIcon(COLOR_A) }).addTo(map);
       } else {
@@ -370,7 +370,7 @@ export function MapFlyover() {
           opacity: 0.9,
         }).addTo(map);
       }
-      dirArrowsBRef.current = addDirectionArrows(map, latlngs, "#000");
+      dirArrowsBRef.current = addDirectionArrows(map, latlngs, "#4c1d95");
       if (!markerBRef.current) {
         markerBRef.current = L.marker(latlngs[0], { icon: makeRiderIcon(COLOR_B) }).addTo(map);
       } else {
