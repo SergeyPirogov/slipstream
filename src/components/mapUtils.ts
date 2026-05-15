@@ -55,11 +55,11 @@ export function addDirectionArrows(
 }
 
 function arrowIcon(color: string, bearingDeg: number): L.DivIcon {
-  // Chevron pointing up (north) then rotated by bearingDeg
+  // Solid filled arrowhead pointing up (north), rotated to bearing
   return L.divIcon({
     className: "",
     html: `<svg width="16" height="16" viewBox="-8 -8 16 16" style="display:block;pointer-events:none;transform:rotate(${bearingDeg}deg)">
-      <polyline points="0,-6 6,2 0,-1 -6,2" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
+      <polygon points="0,-7 6,5 0,1 -6,5" fill="${color}" opacity="0.9"/>
     </svg>`,
     iconSize: [16, 16],
     iconAnchor: [8, 8],
