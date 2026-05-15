@@ -199,7 +199,7 @@ export function RoutePlannerMap() {
 
     // Direction arrows along the full route
     const fullLatlngs = pts.map((p) => [p.lat, p.lon] as [number, number]);
-    dirArrowsRef.current = addDirectionArrows(map, fullLatlngs, "#4c1d95");
+    dirArrowsRef.current = addDirectionArrows(map, fullLatlngs, "#1d4ed8");
 
     // Start / end markers
     const startPt = pts[0];
