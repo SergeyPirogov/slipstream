@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import { useStore } from "../store";
+import { addDirectionArrows } from "./mapUtils";
 
 const HEADWIND_THRESHOLD = -2;
 const TAILWIND_THRESHOLD = 2;
@@ -103,6 +104,7 @@ export function RoutePlannerMap() {
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const arrowsRef = useRef<L.Marker[]>([]);
   const tempLabelsRef = useRef<L.Marker[]>([]);
+  const dirArrowsRef = useRef<L.Marker[]>([]);
   const hoverMarkerRef = useRef<L.CircleMarker | null>(null);
 
   // Init map
@@ -139,6 +141,8 @@ export function RoutePlannerMap() {
     arrowsRef.current = [];
     tempLabelsRef.current.forEach((m) => m.remove());
     tempLabelsRef.current = [];
+    dirArrowsRef.current.forEach((m) => m.remove());
+    dirArrowsRef.current = [];
 
     const { route, windAnalysis } = plan;
     if (!route || route.points.length < 2) return;
@@ -192,6 +196,10 @@ export function RoutePlannerMap() {
       const latlngs = pts.map((p) => [p.lat, p.lon] as [number, number]);
       L.polyline(latlngs, { color: "#6b7280", weight: 4, opacity: 0.8 }).addTo(layer);
     }
+
+    // Direction arrows along the full route
+    const fullLatlngs = pts.map((p) => [p.lat, p.lon] as [number, number]);
+    dirArrowsRef.current = addDirectionArrows(map, fullLatlngs, "#e2e8f0");
 
     // Start / end markers
     const startPt = pts[0];

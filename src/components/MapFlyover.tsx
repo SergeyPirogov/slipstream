@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { useStore, useMaxValue } from "../store";
 import { buildSyncArrays, positionAtValue, queryValues } from "../gpx/align";
+import { addDirectionArrows } from "./mapUtils";
 
 const COLOR_A = "#f97316";
 const COLOR_B = "#3b82f6";
@@ -98,6 +99,8 @@ export function MapFlyover() {
   const gapLabelTextRef = useRef<string>("");
   const gapTintRef = useRef<"pos" | "neg" | "neutral">("neutral");
   const windArrowsRef = useRef<L.Marker[]>([]);
+  const dirArrowsARef = useRef<L.Marker[]>([]);
+  const dirArrowsBRef = useRef<L.Marker[]>([]);
 
   const [liveA, setLiveA] = useState<Stats | null>(null);
   const [liveB, setLiveB] = useState<Stats | null>(null);
@@ -296,6 +299,10 @@ export function MapFlyover() {
       window.removeEventListener("keydown", onKey);
       windArrowsRef.current.forEach((m) => m.remove());
       windArrowsRef.current = [];
+      dirArrowsARef.current.forEach((m) => m.remove());
+      dirArrowsARef.current = [];
+      dirArrowsBRef.current.forEach((m) => m.remove());
+      dirArrowsBRef.current = [];
       map.remove();
       mapRef.current = null;
       lineARef.current = null;
@@ -322,6 +329,12 @@ export function MapFlyover() {
     const map = mapRef.current;
     if (!map) return;
 
+    // Clear previous direction arrows before redrawing
+    dirArrowsARef.current.forEach((m) => m.remove());
+    dirArrowsARef.current = [];
+    dirArrowsBRef.current.forEach((m) => m.remove());
+    dirArrowsBRef.current = [];
+
     // Track A
     if (trackA) {
       const latlngs = trackA.points.map((p) => [p.lat, p.lon] as [number, number]);
@@ -334,6 +347,7 @@ export function MapFlyover() {
           opacity: 0.9,
         }).addTo(map);
       }
+      dirArrowsARef.current = addDirectionArrows(map, latlngs, COLOR_A);
       if (!markerARef.current) {
         markerARef.current = L.marker(latlngs[0], { icon: makeRiderIcon(COLOR_A) }).addTo(map);
       } else {
@@ -356,6 +370,7 @@ export function MapFlyover() {
           opacity: 0.9,
         }).addTo(map);
       }
+      dirArrowsBRef.current = addDirectionArrows(map, latlngs, COLOR_B);
       if (!markerBRef.current) {
         markerBRef.current = L.marker(latlngs[0], { icon: makeRiderIcon(COLOR_B) }).addTo(map);
       } else {
